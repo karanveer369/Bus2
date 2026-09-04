@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>School Admin | Student Tracking</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-8 flex justify-between items-center shadow-xl">
+            <div>
+                <h1 class="text-2xl font-black text-white">🏫 Student Transport Monitor</h1>
+                <p class="text-sm text-slate-400">Live fleet view for <span id="schoolName" class="text-cyan-400 font-bold uppercase tracking-widest">Loading...</span></p>
+            </div>
+            <button onclick="window.location.href='school-dashboard.html'" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm font-bold border border-slate-700 transition">Back to Dashboard</button>
+        </div>
+
+        <!-- Students Table -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+            <div class="p-4 border-b border-slate-800 bg-slate-800/20">
+                <p class="text-xs text-slate-400 font-mono">Showing only students added via Meriride App.</p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left min-w-[600px]">
+                    <thead>
+                        <tr class="bg-slate-800/50 text-slate-400 uppercase text-xs tracking-wider border-b border-slate-800">
+                            <th class="p-4">Student Profile</th>
+                            <th class="p-4">Assigned Driver</th>
+                            <th class="p-4">Vehicle Details</th>
+                            <th class="p-4">Live Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="studentTrackingBody" class="divide-y divide-slate-800">
+                        <tr><td colspan="4" class="p-6 text-center text-slate-500 font-bold animate-pulse">Scanning live database...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ✅ API Keys fixed
+        const SUPABASE_URL = 'https://tvwhtyxosovscygvahow.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2d2h0eXhvc292c2N5Z3ZhaG93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2MDA2MzksImV4cCI6MjEwMTE3NjYzOX0.kVLKQsl4gfIex7LQJqh-GXl-QgEIdvqK8mY7AoauzGI';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        async function loadStudentTracking() {
+            const userString = localStorage.getItem('meriride_user');
+            if (!userString) { window.location.href = 'index.html'; return; }
+            
+            const userData = JSON.parse(userString);
+            
+            // 🏫 Show School Name
+            document.getElementById('schoolName').textContent = userData.school_name || userData.full_name || "School Partner";
+
+            // 🛑 NEW FILTER ADDED: .not('qr_code_id', 'is', null) 
+            // Iska matlab sirf wo bache aayenge jo hamare Dashboard se naye add hue hain!
+            const { data: students, error: studentErr } = await _supabase
+                .from('students')
+                .select('*')
+                .eq('school_id', userData.id)
+                .not('qr_code_id', 'is', null)
+                .order('created_at', { ascending: false });
+            
+            // Get rides for today
+            const { data: rides, error: ridesErr } = await _supabase
+                .from('ride_requests')
+                .select('*')
+                .in('status', ['pending', 'accepted', 'arrived', 'started']);
+
+            const tbody = document.getElementById('studentTrackingBody');
+            
+            if (studentErr || !students || students.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="p-10 text-center">
+                            <div class="text-4xl mb-3">🚸</div>
+                            <h3 class="text-lg font-bold text-white mb-1">No Meriride Students Found</h3>
+                            <p class="text-sm text-slate-400">Please go back to the dashboard and click 'Add Student' to start tracking.</p>
+                        </td>
+                    </tr>`;
+                return;
+            }
+
+            let html = '';
+
+            students.forEach(student => {
+                const activeRide = rides ? rides.find(r => r.passenger_phone === student.parent_phone) : null;
+                
+                let driverName = '<span class="text-slate-600 font-mono">Idle / Not in ride</span>';
+                let vehicleNo = '--';
+                let statusBadge = '<span class="text-slate-500 text-[10px] font-bold uppercase border border-slate-700 px-2 py-1 rounded bg-slate-800">Offline</span>';
+
+                if (activeRide) {
+                    driverName = `<span class="text-white font-bold">${activeRide.driver_name || 'Searching...'}</span>`;
+                    vehicleNo = `<span class="bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded text-xs font-mono border border-blue-500/20">${activeRide.vehicle_no || 'Assigned'}</span>`;
+                    
+                    if (activeRide.status === 'started') {
+                        statusBadge = `<span class="bg-emerald-500/20 text-emerald-400 px-2.5 py-1 rounded text-[10px] font-black uppercase border border-emerald-500/30">🟢 In Transit</span>`;
+                    } else if (activeRide.status === 'arrived') {
+                        statusBadge = `<span class="bg-indigo-500/20 text-indigo-400 px-2.5 py-1 rounded text-[10px] font-black uppercase border border-indigo-500/30">📍 Boarding...</span>`;
+                    } else {
+                        statusBadge = `<span class="bg-amber-500/20 text-amber-400 px-2.5 py-1 rounded text-[10px] font-black uppercase border border-amber-500/30">Driver On Way</span>`;
+                    }
+                }
+                
+                html += `
+                    <tr class="hover:bg-slate-800/40 transition">
+                        <td class="p-4">
+                            <b class="text-white text-base">${student.name}</b> 
+                            <br>
+                            <span class="text-[10px] text-cyan-400 font-mono bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20 mt-1 inline-block">📞 ${student.parent_phone}</span>
+                        </td>
+                        <td class="p-4 text-sm text-slate-300">${driverName}</td>
+                        <td class="p-4">${vehicleNo}</td>
+                        <td class="p-4">${statusBadge}</td>
+                    </tr>`;
+            });
+            tbody.innerHTML = html;
+        }
+        
+        loadStudentTracking();
+        
+        // Auto refresh every 10 seconds
+        setInterval(loadStudentTracking, 10000); 
+    </script>
+</body>
+</html>

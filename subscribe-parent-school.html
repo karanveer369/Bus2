@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Aao Chale - School Bus & Dabba Pass</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        body { background-color: #030712; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+        .glass-card { background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .press-effect { transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .press-effect:active { transform: scale(0.97); }
+        .glow-amber { box-shadow: 0 0 25px rgba(245, 158, 11, 0.2); }
+        .glow-cyan { box-shadow: 0 0 25px rgba(6, 182, 212, 0.2); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen pb-24 font-sans antialiased selection:bg-amber-500 selection:text-slate-950">
+
+    <header class="bg-[#0b132b]/90 backdrop-blur-xl border-b border-slate-800 sticky top-0 z-50 px-4 md:px-8 py-3.5 shadow-xl">
+        <div class="max-w-2xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-400 p-[2px] shadow-lg shadow-amber-500/20 shrink-0">
+                    <div class="w-full h-full bg-[#070b16] rounded-[14px] flex items-center justify-center">
+                        <i class="ph-fill ph-bus text-xl text-amber-400"></i>
+                    </div>
+                </div>
+                <div>
+                    <h1 class="text-base font-black text-white">AAO <span class="text-amber-400">CHALE</span></h1>
+                    <p class="text-[10px] text-slate-400 font-mono font-bold uppercase">School Transit & Recess Meal</p>
+                </div>
+            </div>
+            <a href="parent-portal.html" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold border border-slate-700 transition flex items-center gap-1">
+                <i class="ph-bold ph-x"></i> Close
+            </a>
+        </div>
+    </header>
+
+    <main class="max-w-2xl mx-auto px-4 pt-6 space-y-6">
+        <div>
+            <span class="text-[10px] bg-amber-500/20 text-amber-300 px-2.5 py-0.5 rounded-md font-black uppercase font-mono">School Bus Portal</span>
+            <h2 class="text-2xl font-black text-white mt-1">Live Tracking & Dabba Pass</h2>
+            <p class="text-xs text-slate-400 mt-1">Live bus tracking and 6-day itemized recess meals customized by Admin.</p>
+        </div>
+
+        <!-- 🚌 1. DYNAMIC BUS PASSES FROM ADMIN HUB -->
+        <div class="glass-card border-2 border-cyan-500/40 rounded-3xl p-5 space-y-4 glow-cyan">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 class="text-base font-black text-white flex items-center gap-2">
+                    <i class="ph-bold ph-radar text-cyan-400 text-xl"></i> 1. School Bus Live Tracking Pass
+                </h3>
+                <span class="text-[10px] text-cyan-300 font-mono bg-cyan-500/10 px-2.5 py-0.5 rounded-full border border-cyan-500/30">Live Fleet</span>
+            </div>
+
+            <div id="busPassesContainer" class="space-y-3">
+                <p class="text-xs text-slate-500 text-center py-4">Loading School Bus Passes...</p>
+            </div>
+        </div>
+
+        <!-- 🍱 2. DYNAMIC GHAR KA DABBA & 6-DAY MENUS -->
+        <div class="glass-card border-2 border-amber-500/40 rounded-3xl p-5 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 class="text-base font-black text-white flex items-center gap-2">
+                    <i class="ph-bold ph-cooking-pot text-amber-400 text-xl"></i> 2. Add Recess Dabba Meal
+                </h3>
+                <span class="text-[10px] text-amber-300 font-mono bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/30">Live Menus</span>
+            </div>
+
+            <div id="dabbaTiersContainer" class="space-y-4">
+                <p class="text-xs text-slate-500 text-center py-4">Loading 5-Star Dabba Tiers...</p>
+            </div>
+        </div>
+
+        <!-- 💳 3. TOTAL SUMMARY & SUBMISSION -->
+        <div class="glass-card rounded-3xl p-6 border border-slate-800 space-y-4 shadow-xl">
+            <div class="flex justify-between items-center">
+                <div>
+                    <span class="text-xs text-slate-400 font-bold uppercase font-mono">Total Calculated Pass:</span>
+                    <p class="text-[10px] text-slate-500 font-medium" id="breakdownTxt">--</p>
+                </div>
+                <h4 class="text-3xl font-black text-white font-mono" id="totalDisplay">₹0</h4>
+            </div>
+            <button onclick="submitSubscription()" id="actionBtn" class="press-effect w-full bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-black py-4 rounded-2xl text-xs uppercase tracking-widest shadow-lg shadow-amber-500/20">
+                Start 3-Day Free Trial
+            </button>
+        </div>
+    </main>
+
+    <script>
+        const SUPABASE_URL = 'https://tvwhtyxosovscygvahow.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2d2h0eXhvc292c2N5Z3ZhaG93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2MDA2MzksImV4cCI6MjEwMTE3NjYzOX0.kVLKQsl4gfIex7LQJqh-GXl-QgEIdvqK8mY7AoauzGI';
+        const _supabase = (window.supabase || supabase).createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let user = null;
+        let isTrialEligible = true;
+
+        let selectedBusPassId = 'none';
+        let selectedBusPrice = 0;
+        let selectedDabbaId = 'none';
+        let selectedDabbaPrice = 0;
+        let selectedDabbaDays = 7;
+
+        function getDurationLabel(days) {
+            const d = Number(days) || 7;
+            if (d === 1) return '1 Day';
+            if (d === 2) return '2 Days';
+            if (d === 3) return '3 Days';
+            if (d === 7) return 'week';
+            if (d === 15) return '15 Days';
+            if (d === 30) return 'month';
+            if (d === 90) return '3 Months';
+            if (d === 180) return '6 Months';
+            if (d === 365) return 'year';
+            return `${d} Days`;
+        }
+
+        async function init() {
+            const raw = localStorage.getItem('meriride_parent') || localStorage.getItem('aoochale_user');
+            if (!raw) { window.location.href = 'index.html'; return; }
+            user = JSON.parse(raw);
+
+            const { data: profile } = await _supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+            if (profile) {
+                user = { ...user, ...profile };
+                if (profile.subscription_expiry && new Date(profile.subscription_expiry) > new Date(Date.now() - 365*24*60*60*1000)) {
+                    isTrialEligible = false;
+                    document.getElementById('actionBtn').textContent = "Pay & Activate via Razorpay";
+                }
+            }
+
+            await Promise.all([fetchBusPasses(), fetchDabbaPlans()]);
+            updateGrandTotal();
+        }
+
+        // ==========================================
+        // 🚌 1. FETCH BUS PASSES FROM subscription_plans
+        // ==========================================
+        async function fetchBusPasses() {
+            const container = document.getElementById('busPassesContainer');
+            const { data: plans } = await _supabase.from('subscription_plans').select('*').eq('category', 'student').order('price', { ascending: true });
+
+            let list = (plans && plans.length > 0) ? plans : [
+                { id: 'bus_std', name: 'School Bus Live GPS Radar', price: 49, features: 'Real-time telemetry, SOS alerts, speed monitoring' }
+            ];
+
+            container.innerHTML = list.map((p, idx) => {
+                let durationDays = 7;
+                let rawFeatures = p.features || '';
+                const match = rawFeatures.match(/\[Validity:\s*(\d+)\s*Days?\]/i);
+                if (match) {
+                    durationDays = Number(match[1]);
+                    rawFeatures = rawFeatures.replace(/\[Validity:\s*\d+\s*Days?\]/i, '').trim();
+                }
+                const durationLabel = getDurationLabel(durationDays);
+
+                return `
+                    <div id="bus-card-${p.id}" onclick="selectBusPass('${p.id}', ${p.price})" class="p-4 rounded-2xl border ${idx === 0 ? 'border-cyan-500/80 bg-[#070b16] glow-cyan' : 'border-slate-800 bg-[#070b16]/70'} transition cursor-pointer space-y-2">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <input type="radio" name="busPassTier" id="radio-bus-${p.id}" value="${p.id}" ${idx === 0 ? 'checked' : ''} class="w-4 h-4 accent-cyan-500">
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <p class="text-xs font-black text-white">${p.name}</p>
+                                        <span class="text-[9px] bg-cyan-500/20 text-cyan-300 px-2 py-0.2 rounded-full font-mono uppercase font-bold">${durationLabel.toUpperCase()}</span>
+                                    </div>
+                                    <p class="text-[10px] text-slate-400 mt-0.5">Live bus telematics & parent route view</p>
+                                </div>
+                            </div>
+                            <span class="text-sm font-black font-mono text-cyan-400">₹${p.price}<span class="text-[10px] text-slate-500 font-normal">/${durationLabel}</span></span>
+                        </div>
+                        ${rawFeatures ? `
+                            <div class="text-[11px] text-slate-400 pl-7 space-y-1">
+                                ${rawFeatures.split(',').filter(f => f.trim()).map(f => `<div class="flex items-center gap-1.5"><i class="ph-bold ph-check text-cyan-400 text-xs"></i> ${f.trim()}</div>`).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+            if (list.length > 0) {
+                selectedBusPassId = list[0].id;
+                selectedBusPrice = Number(list[0].price);
+            }
+        }
+
+        function selectBusPass(id, price) {
+            selectedBusPassId = id;
+            selectedBusPrice = Number(price);
+
+            document.querySelectorAll('[id^="bus-card-"]').forEach(box => {
+                box.classList.remove('border-cyan-500/80', 'glow-cyan');
+                box.classList.add('border-slate-800');
+            });
+            const selectedBox = document.getElementById(`bus-card-${id}`);
+            if (selectedBox) {
+                selectedBox.classList.remove('border-slate-800');
+                selectedBox.classList.add('border-cyan-500/80', 'glow-cyan');
+            }
+            const radio = document.getElementById(`radio-bus-${id}`);
+            if (radio) radio.checked = true;
+
+            updateGrandTotal();
+        }
+
+        // ==========================================
+        // 🍱 2. FETCH DABBA PLANS WITH 6-DAY MENUS
+        // ==========================================
+        function parseMenuItems(dayData) {
+            if (!dayData) return [];
+            if (Array.isArray(dayData)) return dayData;
+            try {
+                const parsed = JSON.parse(dayData);
+                if (Array.isArray(parsed)) return parsed;
+                return [{ name: String(dayData), qty: '' }];
+            } catch (e) {
+                if (typeof dayData === 'string' && dayData.includes(',')) {
+                    return dayData.split(',').map(s => ({ name: s.trim(), qty: '' }));
+                }
+                return [{ name: String(dayData), qty: '' }];
+            }
+        }
+
+        function renderDayPill(dayLabel, items) {
+            if (!items || items.length === 0 || (items.length === 1 && !items[0].name)) {
+                return `<div class="bg-slate-950/50 p-2.5 rounded-xl border border-slate-800/80"><span class="text-[9px] font-mono text-slate-500 font-bold uppercase block">${dayLabel}</span><span class="text-[11px] text-slate-500">Standard Lunch</span></div>`;
+            }
+            const itemsText = items.map(i => `${i.name || ''} ${i.qty ? `<b class="text-amber-400 font-mono">(${i.qty})</b>` : ''}`).join(', ');
+            return `
+                <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800">
+                    <span class="text-[9px] font-mono text-amber-400 font-black uppercase block mb-0.5">${dayLabel}</span>
+                    <p class="text-[11px] text-slate-200 font-medium leading-relaxed">${itemsText}</p>
+                </div>
+            `;
+        }
+
+        async function fetchDabbaPlans() {
+            const container = document.getElementById('dabbaTiersContainer');
+            const { data: plans } = await _supabase.from('dabba_plans').select('*').order('price_per_week', { ascending: true });
+
+            let list = [{ id: 'none', plan_name: 'No Dabba (Bus Tracking Only)', price_per_week: 0, tagline: 'Only school bus GPS location & telemetry' }];
+            if (plans && plans.length > 0) list = list.concat(plans);
+
+            container.innerHTML = list.map((p, idx) => {
+                const isNone = p.id === 'none';
+                let durationDays = 7;
+                let cleanTagline = p.tagline || '';
+                const match = cleanTagline.match(/\[(\d+)\s*Days?\]/i);
+                if (match) {
+                    durationDays = Number(match[1]);
+                    cleanTagline = cleanTagline.replace(/\[\d+\s*Days?\]/i, '').trim();
+                }
+                const durationLabel = getDurationLabel(durationDays);
+
+                const monItems = parseMenuItems(p.menu_mon);
+                const tueItems = parseMenuItems(p.menu_tue);
+                const wedItems = parseMenuItems(p.menu_wed);
+                const thuItems = parseMenuItems(p.menu_thu);
+                const friItems = parseMenuItems(p.menu_fri);
+                const satItems = parseMenuItems(p.menu_sat);
+
+                return `
+                    <div id="dabba-box-${p.id}" class="p-4 rounded-2xl border ${idx === 0 ? 'border-amber-500/80 bg-[#070b16] glow-amber' : 'border-slate-800 bg-[#070b16]/70'} transition space-y-3">
+                        <div class="flex items-center justify-between cursor-pointer" onclick="selectDabba('${p.id}', ${p.price_per_week}, ${durationDays})">
+                            <div class="flex items-center gap-3">
+                                <input type="radio" name="dabbaTier" id="radio-dabba-${p.id}" value="${p.id}" ${idx === 0 ? 'checked' : ''} onchange="selectDabba('${p.id}', ${p.price_per_week}, ${durationDays})" class="w-4 h-4 accent-amber-500 cursor-pointer">
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <p class="text-xs font-black text-white">${p.plan_name}</p>
+                                        <span class="text-[9px] bg-amber-500/20 text-amber-300 px-2 py-0.2 rounded-full font-mono uppercase font-bold">${durationLabel.toUpperCase()}</span>
+                                    </div>
+                                    <p class="text-[10px] text-slate-400 mt-0.5">${cleanTagline || 'Nutritious recess tiffin'}</p>
+                                </div>
+                            </div>
+                            <span class="text-sm font-black font-mono text-amber-400">₹${p.price_per_week}<span class="text-[10px] text-slate-500 font-normal">/${durationLabel}</span></span>
+                        </div>
+
+                        ${!isNone ? `
+                            <div class="pt-3 border-t border-slate-800/80 space-y-2">
+                                <span class="text-[10px] font-mono text-amber-300 font-bold uppercase flex items-center gap-1.5">
+                                    <i class="ph-bold ph-calendar-check text-xs"></i> 6-Day Meal Menu Portions:
+                                </span>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                    ${renderDayPill('Mon', monItems)}
+                                    ${renderDayPill('Tue', tueItems)}
+                                    ${renderDayPill('Wed', wedItems)}
+                                    ${renderDayPill('Thu', thuItems)}
+                                    ${renderDayPill('Fri', friItems)}
+                                    ${renderDayPill('Sat', satItems)}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+
+            selectedDabbaId = 'none';
+            selectedDabbaPrice = 0;
+            selectedDabbaDays = 7;
+        }
+
+        function selectDabba(id, price, days = 7) {
+            selectedDabbaId = id;
+            selectedDabbaPrice = Number(price);
+            selectedDabbaDays = Number(days) || 7;
+
+            document.querySelectorAll('[id^="dabba-box-"]').forEach(box => {
+                box.classList.remove('border-amber-500/80', 'glow-amber');
+                box.classList.add('border-slate-800');
+            });
+            const selectedBox = document.getElementById(`dabba-box-${id}`);
+            if (selectedBox) {
+                selectedBox.classList.remove('border-slate-800');
+                selectedBox.classList.add('border-amber-500/80', 'glow-amber');
+            }
+
+            const radio = document.getElementById(`radio-dabba-${id}`);
+            if (radio) radio.checked = true;
+
+            updateGrandTotal();
+        }
+
+        function updateGrandTotal() {
+            const total = selectedBusPrice + selectedDabbaPrice;
+            document.getElementById('totalDisplay').textContent = `₹${total}`;
+            const busLabel = selectedBusPrice > 0 ? `Bus Pass (₹${selectedBusPrice})` : 'No Bus Pass';
+            const dabbaLabel = selectedDabbaPrice > 0 ? `Dabba (₹${selectedDabbaPrice})` : 'No Dabba';
+            document.getElementById('breakdownTxt').textContent = `${busLabel} + ${dabbaLabel}`;
+        }
+
+        // ==========================================
+        // 🚀 SUBMISSION LOGIC
+        // ==========================================
+        async function submitSubscription() {
+            if (selectedBusPrice + selectedDabbaPrice === 0) {
+                return alert("Please select a valid bus tracking pass or dabba meal!");
+            }
+
+            const btn = document.getElementById('actionBtn');
+            btn.textContent = "Processing..."; btn.disabled = true;
+
+            const days = isTrialEligible ? 3 : selectedDabbaDays;
+            const expiry = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+            const planName = `school_bus_${selectedBusPassId}_D_${selectedDabbaId}`;
+
+            const updatePayload = {
+                plan_status: isTrialEligible ? 'trial' : 'active',
+                active_plan: planName,
+                subscription_expiry: expiry,
+                has_transport_pass: selectedBusPrice > 0,
+                dabba_subscription: selectedDabbaId
+            };
+
+            const { error } = await _supabase.from('profiles').update(updatePayload).eq('id', user.id);
+
+            if (error) { 
+                alert("Database Error: " + error.message); 
+                btn.textContent = isTrialEligible ? "Start 3-Day Free Trial" : "Pay & Activate via Razorpay";
+                btn.disabled = false; 
+                return; 
+            }
+
+            user.plan_status = isTrialEligible ? 'trial' : 'active';
+            user.active_plan = planName;
+            user.subscription_expiry = expiry;
+            user.has_transport_pass = selectedBusPrice > 0;
+            user.dabba_subscription = selectedDabbaId;
+
+            localStorage.setItem('meriride_parent', JSON.stringify(user));
+            alert(isTrialEligible ? "✨ 3-Day Free Trial Started!" : `✅ Pass Activated for ${getDurationLabel(days)}!`);
+            window.location.href = 'parent-portal.html';
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>

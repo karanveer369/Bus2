@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Aao Chale School - Tariff & Dabba Command Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <style>
+        body { 
+            background-color: #030712; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            -webkit-tap-highlight-color: transparent; 
+        }
+        .glass-card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .press-effect { transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .press-effect:active { transform: scale(0.97); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .glow-amber { box-shadow: 0 0 25px rgba(245, 158, 11, 0.15); }
+        .glow-cyan { box-shadow: 0 0 25px rgba(6, 182, 212, 0.15); }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen p-3 md:p-8 font-sans antialiased selection:bg-amber-500 selection:text-slate-950 pb-24">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- Header Section -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#0b132b] border border-slate-800 rounded-3xl p-5 md:p-8 shadow-2xl relative overflow-hidden">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-gradient-to-tr from-amber-500 via-orange-500 to-yellow-300 p-[2px] shadow-xl shadow-amber-500/20 flex-shrink-0">
+                    <div class="w-full h-full bg-[#070b16] rounded-[14px] flex items-center justify-center">
+                        <i class="ph-fill ph-bus text-2xl md:text-3xl text-amber-400"></i>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full font-mono">School Master Hub</span>
+                        <span class="text-[10px] text-emerald-400 font-mono flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Live Supabase Sync</span>
+                    </div>
+                    <h1 class="text-xl md:text-3xl font-black text-white tracking-tight mt-1">School Transport & Dabba Command</h1>
+                    <p class="text-xs text-slate-400">Manage student bus transit passes, 6-day itemized lunch menus, and nutrition portions.</p>
+                </div>
+            </div>
+
+            <!-- BACK TO DASHBOARD BUTTON LINKED TO admin-dashboard.html -->
+            <div class="flex items-center gap-3 w-full md:w-auto">
+                <button onclick="window.location.href='admin-dashboard.html'" class="press-effect flex-1 md:flex-none text-center bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-4 py-2.5 rounded-2xl font-bold text-xs uppercase tracking-wider transition shadow-lg flex items-center justify-center gap-2">
+                    <i class="ph-bold ph-arrow-left text-sm"></i> Dashboard
+                </button>
+                <button onclick="handleLogout()" class="press-effect bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 px-4 py-2.5 rounded-2xl font-bold text-xs uppercase tracking-wider transition shadow-lg">
+                    Logout
+                </button>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs: Transport Passes vs Dabba Menus -->
+        <div class="grid grid-cols-2 gap-2 bg-[#080d1a] p-2 rounded-2xl border border-slate-800/80 max-w-xl">
+            <button onclick="switchMasterTab('student_plans')" id="tabBtn-student_plans" class="py-3.5 px-3 rounded-xl font-black text-xs uppercase tracking-wider transition bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25 flex items-center justify-center gap-1.5 text-center">
+                <i class="ph-bold ph-backpack text-base flex-shrink-0"></i>
+                <span class="truncate">Student Bus Passes</span>
+            </button>
+            <button onclick="switchMasterTab('dabba_menu')" id="tabBtn-dabba_menu" class="py-3.5 px-3 rounded-xl font-black text-xs uppercase tracking-wider transition text-slate-400 hover:text-white hover:bg-slate-800/60 flex items-center justify-center gap-1.5 text-center">
+                <i class="ph-bold ph-cooking-pot text-base flex-shrink-0"></i>
+                <span class="truncate">School Dabba Menus</span>
+            </button>
+        </div>
+
+        <!-- 🎒 MODULE 1: STUDENT TRANSPORT PASSES -->
+        <div id="section-student_plans" class="space-y-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-cyan-500/10 border border-cyan-500/30 p-5 md:p-6 rounded-3xl">
+                <div>
+                    <h2 class="text-xl font-black text-cyan-300">Student School Bus Transit Passes</h2>
+                    <p class="text-xs text-slate-300 mt-0.5">Configure Weekly (₹49), Monthly (₹199), and Term/Annual school bus GPS & rewards access passes.</p>
+                </div>
+                <button onclick="openPassModal(null)" class="press-effect bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black px-5 py-3 rounded-2xl text-xs uppercase tracking-wider shadow-lg shadow-cyan-500/30 flex items-center gap-2">
+                    <i class="ph-bold ph-plus text-base"></i><span>+ Create Student Pass</span>
+                </button>
+            </div>
+            <div id="studentGridContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div class="p-8 text-center text-slate-500 font-mono text-xs col-span-full">Loading student transit passes...</div>
+            </div>
+        </div>
+
+        <!-- 🍱 MODULE 2: SCHOOL DABBA & TIFFIN MENU MANAGER -->
+        <div id="section-dabba_menu" class="hidden space-y-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-amber-500/10 border border-amber-500/30 p-5 md:p-6 rounded-3xl">
+                <div>
+                    <h2 class="text-xl font-black text-amber-300">Healthy School Recess & Tiffin Tiers</h2>
+                    <p class="text-xs text-slate-300 mt-0.5">Manage daily, weekly (6-day), monthly, and custom day student lunch meal passes.</p>
+                </div>
+                <button onclick="openDabbaModal(null)" class="press-effect bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-5 py-3 rounded-2xl text-xs uppercase tracking-wider shadow-lg shadow-amber-500/30 flex items-center gap-2">
+                    <i class="ph-bold ph-plus text-base"></i>
+                    <span>+ Create Dabba Tier</span>
+                </button>
+            </div>
+
+            <div id="dabbaGridContainer" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="p-8 text-center text-slate-500 font-mono text-xs col-span-full">Loading school dabba menu plans...</div>
+            </div>
+        </div>
+
+    </div>
+    <!-- 🌟 MODAL 1: CREATE / EDIT STUDENT BUS PASS -->
+    <div id="passModal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-[#0d1424] border border-slate-800 rounded-3xl p-6 w-full max-w-lg space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 id="passModalTitle" class="text-base font-black text-cyan-400 uppercase font-mono">Create Student Transit Pass</h3>
+                <button onclick="closePassModal()" class="text-slate-400 hover:text-white text-lg">✕</button>
+            </div>
+
+            <form id="passForm" onsubmit="savePass(event)" class="space-y-4">
+                <input type="hidden" id="passId">
+                
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Pass Name</label>
+                    <input type="text" id="passName" required class="w-full bg-[#070b16] border border-slate-700 rounded-xl px-3.5 py-2.5 text-white text-sm font-bold focus:outline-none focus:border-cyan-400" placeholder="e.g. Standard School Bus Weekly Pass">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Price (₹)</label>
+                        <input type="number" id="passPrice" required class="w-full bg-[#070b16] border border-slate-700 rounded-xl px-3.5 py-2.5 text-white font-mono font-bold text-sm focus:outline-none focus:border-cyan-400" placeholder="49">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Pass Validity</label>
+                        <select id="passValiditySelect" onchange="toggleCustomDays('pass')" class="w-full bg-[#070b16] border border-slate-700 rounded-xl px-3 py-2.5 text-cyan-300 font-bold text-xs focus:outline-none focus:border-cyan-400">
+                            <option value="1">1 Day (Daily Access)</option>
+                            <option value="7" selected>7 Days (Weekly Pass)</option>
+                            <option value="30">30 Days (Monthly Pass)</option>
+                            <option value="90">90 Days (Quarterly Term)</option>
+                            <option value="365">365 Days (Annual Pass)</option>
+                            <option value="custom">Custom Days...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="passCustomDaysBox" class="hidden">
+                    <label class="block text-xs font-bold uppercase text-cyan-400 mb-1">Custom Duration (Days)</label>
+                    <input type="number" id="passCustomDays" min="1" max="1000" class="w-full bg-[#070b16] border border-cyan-500 rounded-xl px-3.5 py-2 text-white font-mono font-bold text-sm" placeholder="e.g. 45">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Pass Features (Comma Separated)</label>
+                    <textarea id="passFeatures" rows="3" class="w-full bg-[#070b16] border border-slate-700 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-cyan-400" placeholder="Live 50m QR attendance, Live bus radar tracking, Milestone gifts eligible"></textarea>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                    <button type="button" onclick="closePassModal()" class="px-4 py-2 bg-slate-800 text-xs font-bold rounded-xl text-slate-300">Cancel</button>
+                    <button type="submit" class="press-effect px-6 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs uppercase rounded-xl shadow-lg">Save Transit Pass</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 🌟 MODAL 2: 6-DAY DABBA MENU DESIGNER -->
+    <div id="dabbaModal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 hidden">
+        <div class="bg-[#0d1424] border border-slate-800 rounded-3xl p-5 sm:p-6 w-full max-w-3xl max-h-[92vh] overflow-y-auto space-y-6 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div>
+                    <h3 id="dabbaModalTitle" class="text-lg font-black text-amber-400 uppercase font-mono">School Dabba Menu Designer</h3>
+                    <p class="text-xs text-slate-400">Set custom validity & 6-day food portions</p>
+                </div>
+                <button onclick="closeDabbaModal()" class="w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center text-slate-400 hover:text-white font-bold text-base">✕</button>
+            </div>
+
+            <form id="dabbaPlanForm" onsubmit="saveDabbaPlan(event)" class="space-y-6">
+                <input type="hidden" id="dabbaId">
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-black/30 p-4 rounded-2xl border border-white/[0.05]">
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Dabba / Tier Name</label>
+                        <input type="text" id="dabbaName" required class="w-full bg-[#070b16] border border-slate-700 rounded-xl px-3.5 py-2.5 text-white font-bold text-sm focus:outline-none focus:border-amber-500" placeholder="e.g. Student Nutrition Deluxe Dabba">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Price (₹)</label>
+                        <input type="number" id="dabbaPrice" required class="w-full bg-[#070b16] border border-slate-700 rounded-xl px-3.5 py-2.5 text-white font-mono font-bold text-sm focus:outline-none focus:border-amber-500" placeholder="349">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Plan Validity</label>
+                        <select id="dabbaValiditySelect" onchange="toggleCustomDays('dabba')" class="w-full bg-[#070b16] border border-slate-700 rounded-xl px-3.5 py-2.5 text-amber-300 font-bold text-xs focus:outline-none focus:border-amber-500">
+                            <option value="1">1 Day (Daily Recess)</option>
+                            <option value="2">2 Days (Trial Pass)</option>
+                            <option value="7" selected>7 Days (Weekly Pass)</option>
+                            <option value="15">15 Days (Bi-Weekly)</option>
+                            <option value="30">30 Days (Monthly Pass)</option>
+                            <option value="90">90 Days (Term Pass)</option>
+                            <option value="365">365 Days (Annual Pass)</option>
+                            <option value="custom">Custom Days...</option>
+                        </select>
+                    </div>
+
+                    <div id="dabbaCustomDaysBox" class="hidden sm:col-span-2 md:col-span-4">
+                        <label class="block text-xs font-bold uppercase text-amber-400 mb-1">Custom Duration (Days)</label>
+                        <input type="number" id="dabbaCustomDays" min="1" max="1000" class="w-full bg-[#070b16] border border-amber-500 rounded-xl px-3.5 py-2.5 text-white font-mono font-bold text-sm" placeholder="e.g. 45">
+                    </div>
+
+                    <div class="sm:col-span-2 md:col-span-4">
+                        <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Tagline / Meal Highlights</label>
+                        <input type="text" id="dabbaTagline" class="w-full bg-[#070b16] border border-slate-700 rounded-xl px-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-amber-500" placeholder="e.g. 6-Day Hygienic Balanced Pure-Veg Student Recess Meal">
+                    </div>
+                </div>
+                <div class="space-y-3">
+                    <div class="flex space-x-1.5 border-b border-slate-800 pb-2 overflow-x-auto no-scrollbar">
+                        <button type="button" onclick="switchMenuDay('mon')" id="dayTab-mon" class="px-3.5 py-2 rounded-xl text-xs font-black uppercase bg-amber-500 text-slate-950 transition whitespace-nowrap">Monday</button>
+                        <button type="button" onclick="switchMenuDay('tue')" id="dayTab-tue" class="px-3.5 py-2 rounded-xl text-xs font-black uppercase bg-slate-800 text-slate-400 transition whitespace-nowrap">Tuesday</button>
+                        <button type="button" onclick="switchMenuDay('wed')" id="dayTab-wed" class="px-3.5 py-2 rounded-xl text-xs font-black uppercase bg-slate-800 text-slate-400 transition whitespace-nowrap">Wednesday</button>
+                        <button type="button" onclick="switchMenuDay('thu')" id="dayTab-thu" class="px-3.5 py-2 rounded-xl text-xs font-black uppercase bg-slate-800 text-slate-400 transition whitespace-nowrap">Thursday</button>
+                        <button type="button" onclick="switchMenuDay('fri')" id="dayTab-fri" class="px-3.5 py-2 rounded-xl text-xs font-black uppercase bg-slate-800 text-slate-400 transition whitespace-nowrap">Friday</button>
+                        <button type="button" onclick="switchMenuDay('sat')" id="dayTab-sat" class="px-3.5 py-2 rounded-xl text-xs font-black uppercase bg-slate-800 text-slate-400 transition whitespace-nowrap">Saturday</button>
+                    </div>
+
+                    <div class="bg-black/40 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h4 id="activeDayHeading" class="text-xs sm:text-sm font-black text-amber-400 uppercase font-mono">Editing MONDAY Menu Items</h4>
+                            <button type="button" onclick="addItemRow()" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+                                <i class="ph-bold ph-plus"></i> Add Item Row
+                            </button>
+                        </div>
+                        <div id="itemRowsContainer" class="space-y-2.5 max-h-56 overflow-y-auto pr-1"></div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                    <button type="button" onclick="closeDabbaModal()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-300">Cancel</button>
+                    <button type="submit" class="press-effect px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs uppercase tracking-wider shadow-lg">Save Dabba Plan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://tvwhtyxosovscygvahow.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2d2h0eXhvc292c2N5Z3ZhaG93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2MDA2MzksImV4cCI6MjEwMTE3NjYzOX0.kVLKQsl4gfIex7LQJqh-GXl-QgEIdvqK8mY7AoauzGI';
+        
+        const _supabase = (window.supabase || supabase).createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let weeklyMenuData = {
+            mon: [{name: 'Paneer Sabzi', qty: '200g'}, {name: 'Fresh Butter Roti', qty: '4 Pcs'}],
+            tue: [{name: 'Aloo Gobhi Masala', qty: '200g'}, {name: 'Crispy Poori', qty: '4 Pcs'}],
+            wed: [{name: 'Nutritious Dal Khichdi', qty: '250g'}, {name: 'Roasted Papad & Pickle', qty: '1 Set'}],
+            thu: [{name: 'Stuffed Paneer Paratha', qty: '2 Pcs'}, {name: 'Fresh Curd / Dahi', qty: '100g'}],
+            fri: [{name: 'Mix Seasonal Sabzi', qty: '200g'}, {name: 'Jeera Rice & Roti', qty: '1 Bowl + 2 Roti'}],
+            sat: [{name: 'Desi Pulao with Rajma', qty: '300g'}, {name: 'Healthy Salad / Sweet', qty: '1 Cup'}]
+        };
+        let currentActiveDay = 'mon';
+
+        function getDurationLabel(days) {
+            const d = Number(days) || 7;
+            if (d === 1) return '1 Day';
+            if (d === 2) return '2 Days';
+            if (d === 7) return 'week';
+            if (d === 15) return '15 Days';
+            if (d === 30) return 'month';
+            if (d === 90) return '3 Months';
+            if (d === 365) return 'year';
+            return `${d} Days`;
+        }
+
+        function toggleCustomDays(type) {
+            if (type === 'dabba') {
+                const val = document.getElementById('dabbaValiditySelect').value;
+                document.getElementById('dabbaCustomDaysBox').classList.toggle('hidden', val !== 'custom');
+            } else {
+                const val = document.getElementById('passValiditySelect').value;
+                document.getElementById('passCustomDaysBox').classList.toggle('hidden', val !== 'custom');
+            }
+        }
+
+        function checkAdminAuth() {
+            const rawUser = localStorage.getItem('meriride_user') || localStorage.getItem('aoochale_user');
+            if (!rawUser) { window.location.href = 'index.html'; return; }
+            const profile = JSON.parse(rawUser);
+            if (profile.role !== 'admin') { window.location.href = 'index.html'; return; }
+            loadAllData();
+        }
+
+        function switchMasterTab(tab) {
+            ['student_plans', 'dabba_menu'].forEach(t => {
+                const sec = document.getElementById('section-' + t);
+                const btn = document.getElementById('tabBtn-' + t);
+                if (sec) sec.classList.toggle('hidden', t !== tab);
+                if (btn) {
+                    btn.className = t === tab ? 
+                        "py-3.5 px-3 rounded-xl font-black text-xs uppercase tracking-wider transition bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25 flex items-center justify-center gap-1.5 text-center" : 
+                        "py-3.5 px-3 rounded-xl font-black text-xs uppercase tracking-wider transition text-slate-400 hover:text-white hover:bg-slate-800/60 flex items-center justify-center gap-1.5 text-center";
+                }
+            });
+        }
+
+        async function loadAllData() {
+            await Promise.all([
+                loadStudentPasses(),
+                loadDabbaPlans()
+            ]);
+        }
+
+        // 🎒 STUDENT TRANSPORT PASSES
+        async function loadStudentPasses() {
+            const container = document.getElementById('studentGridContainer');
+            const { data, error } = await _supabase.from('subscription_plans').select('*').eq('category', 'student').order('price', { ascending: true });
+
+            if (error || !data || data.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full bg-slate-950 p-8 rounded-3xl border border-slate-800 text-center">
+                        <span class="text-3xl mb-2 block">🎒</span>
+                        <p class="text-xs text-slate-400 font-mono">No student transit passes created yet. Click "+ Create Student Pass" above.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = data.map(p => {
+                let durationLabel = "week";
+                let rawFeatures = p.features || '';
+                const match = rawFeatures.match(/\[Validity:\s*(\d+)\s*Days?\]/i);
+                if (match) durationLabel = getDurationLabel(match[1]);
+
+                const cleanFeatures = rawFeatures.replace(/\[Validity:\s*\d+\s*Days?\]/i, '').trim();
+
+                return `
+                    <div class="glass-card border border-cyan-500/40 glow-cyan rounded-3xl p-6 space-y-4 flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-start mb-2">
+                                <span class="bg-cyan-500/20 text-cyan-300 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full font-mono">
+                                    ${durationLabel.toUpperCase()} PASS
+                                </span>
+                                <div class="text-right">
+                                    <span class="text-2xl font-black text-cyan-400 font-mono">₹${p.price}</span>
+                                    <span class="text-xs text-slate-500 block font-bold">/ ${durationLabel}</span>
+                                </div>
+                            </div>
+                            <h3 class="text-lg font-black text-white">${p.name}</h3>
+
+                            <div class="text-xs text-slate-300 space-y-1.5 bg-black/25 p-3 rounded-2xl border border-white/[0.05] mt-3">
+                                ${cleanFeatures ? cleanFeatures.split(',').filter(f => f.trim()).map(f => `<div class="flex items-center gap-1.5"><i class="ph-bold ph-check text-cyan-400 text-xs"></i> ${f.trim()}</div>`).join('') : '<div class="text-slate-500">Active bus transit pass</div>'}
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                            <button onclick='openPassModal(${JSON.stringify(p)})' class="press-effect bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider">
+                                Edit
+                            </button>
+                            <button onclick="deletePass('${p.id}')" class="press-effect bg-rose-600/20 hover:bg-rose-600 text-rose-400 px-3 py-2 rounded-xl text-xs font-bold">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openPassModal(plan = null) {
+            document.getElementById('passModal').classList.remove('hidden');
+            
+            if (plan) {
+                document.getElementById('passModalTitle').textContent = `Edit "${plan.name}"`;
+                document.getElementById('passId').value = plan.id;
+                document.getElementById('passName').value = plan.name;
+                document.getElementById('passPrice').value = plan.price;
+                
+                let rawFeatures = plan.features || '';
+                const match = rawFeatures.match(/\[Validity:\s*(\d+)\s*Days?\]/i);
+                if (match) {
+                    const days = match[1];
+                    const select = document.getElementById('passValiditySelect');
+                    if (['1','7','30','90','365'].includes(days)) select.value = days;
+                    else { select.value = 'custom'; document.getElementById('passCustomDays').value = days; }
+                    rawFeatures = rawFeatures.replace(/\[Validity:\s*\d+\s*Days?\]/i, '').trim();
+                } else {
+                    document.getElementById('passValiditySelect').value = '7';
+                }
+                toggleCustomDays('pass');
+                document.getElementById('passFeatures').value = rawFeatures;
+            } else {
+                document.getElementById('passModalTitle').textContent = `Create New Student Transit Pass`;
+                document.getElementById('passForm').reset();
+                document.getElementById('passId').value = '';
+                document.getElementById('passValiditySelect').value = '7';
+                toggleCustomDays('pass');
+            }
+        }
+
+        function closePassModal() { document.getElementById('passModal').classList.add('hidden'); }
+
+        async function savePass(e) {
+            e.preventDefault();
+            const rawId = document.getElementById('passId').value.trim();
+            const selectVal = document.getElementById('passValiditySelect').value;
+            const finalDays = selectVal === 'custom' ? (document.getElementById('passCustomDays').value || 7) : selectVal;
+            const baseFeatures = document.getElementById('passFeatures').value.trim();
+            const combinedFeatures = `[Validity: ${finalDays} Days] ${baseFeatures}`.trim();
+
+            const planData = {
+                category: 'student',
+                name: document.getElementById('passName').value.trim(),
+                price: Number(document.getElementById('passPrice').value),
+                features: combinedFeatures
+            };
+
+            if (rawId) {
+                planData.id = isNaN(rawId) ? rawId : Number(rawId);
+            }
+
+            const { error } = await _supabase.from('subscription_plans').upsert([planData]);
+            if (error) return alert("Database Error: " + error.message);
+
+            alert(`✅ Student Bus Pass Saved for ${getDurationLabel(finalDays)}!`);
+            closePassModal();
+            loadStudentPasses();
+        }
+
+        async function deletePass(id) {
+            if (!confirm("Delete this student transit pass?")) return;
+            const targetId = isNaN(id) ? id : Number(id);
+            await _supabase.from('subscription_plans').delete().eq('id', targetId);
+            loadStudentPasses();
+        }
+        // 🍱 SCHOOL DABBA / TIFFIN MENUS
+        function switchMenuDay(day) {
+            currentActiveDay = day;
+            ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'].forEach(d => {
+                const tab = document.getElementById('dayTab-' + d);
+                if (tab) {
+                    tab.className = d === day ? 
+                        "px-3.5 py-2 rounded-xl text-xs font-black uppercase bg-amber-500 text-slate-950 transition whitespace-nowrap shadow" : 
+                        "px-3.5 py-2 rounded-xl text-xs font-black uppercase bg-slate-800 text-slate-400 transition whitespace-nowrap hover:text-white";
+                }
+            });
+            document.getElementById('activeDayHeading').textContent = `Editing ${day.toUpperCase()} Menu Items & Portions`;
+            renderItemRows();
+        }
+
+        function renderItemRows() {
+            const container = document.getElementById('itemRowsContainer');
+            const items = weeklyMenuData[currentActiveDay] || [];
+            
+            if (items.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">No items configured for this day. Click "+ Add Item Row" above.</p>`;
+                return;
+            }
+            
+            container.innerHTML = items.map((item, index) => `
+                <div class="flex items-center gap-2 bg-[#030712] p-2 rounded-xl border border-slate-800">
+                    <input type="text" value="${item.name || ''}" oninput="updateItemData(${index}, 'name', this.value)" placeholder="Food Item (e.g. Shahi Paneer)" class="flex-1 bg-[#070b16] border border-slate-700 rounded-lg px-3 py-2 text-white text-xs focus:outline-none focus:border-amber-500">
+                    <input type="text" value="${item.qty || ''}" oninput="updateItemData(${index}, 'qty', this.value)" placeholder="Portion (e.g. 200g / 4 Pcs)" class="w-36 bg-[#070b16] border border-slate-700 rounded-lg px-3 py-2 text-amber-300 font-mono text-xs focus:outline-none focus:border-amber-500">
+                    <button type="button" onclick="removeItemRow(${index})" class="p-2 text-rose-400 hover:text-rose-300"><i class="ph-bold ph-trash text-sm"></i></button>
+                </div>
+            `).join('');
+        }
+
+        function addItemRow() {
+            if (!weeklyMenuData[currentActiveDay]) weeklyMenuData[currentActiveDay] = [];
+            weeklyMenuData[currentActiveDay].push({ name: '', qty: '' });
+            renderItemRows();
+        }
+
+        function updateItemData(index, field, val) { 
+            if (weeklyMenuData[currentActiveDay] && weeklyMenuData[currentActiveDay][index]) {
+                weeklyMenuData[currentActiveDay][index][field] = val; 
+            }
+        }
+
+        function removeItemRow(index) { 
+            if (weeklyMenuData[currentActiveDay]) {
+                weeklyMenuData[currentActiveDay].splice(index, 1); 
+                renderItemRows(); 
+            }
+        }
+
+        async function loadDabbaPlans() {
+            const grid = document.getElementById('dabbaGridContainer');
+            const { data, error } = await _supabase.from('dabba_plans').select('*').order('price_per_week', { ascending: true });
+
+            if (error || !data || data.length === 0) {
+                grid.innerHTML = `<div class="p-8 text-center text-slate-500 font-bold col-span-full">No dabba plans found. Click "+ Create Dabba Tier" above.</div>`;
+                return;
+            }
+
+            grid.innerHTML = data.map(p => {
+                let durationLabel = "week";
+                let cleanTagline = p.tagline || '';
+                const match = cleanTagline.match(/\[(\d+)\s*Days?\]/i);
+                if (match) {
+                    durationLabel = getDurationLabel(match[1]);
+                    cleanTagline = cleanTagline.replace(/\[\d+\s*Days?\]/i, '').trim();
+                }
+
+                const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+                const daysPreviewHtml = days.map(d => {
+                    let items = [];
+                    try {
+                        items = typeof p['menu_' + d] === 'string' ? JSON.parse(p['menu_' + d]) : (p['menu_' + d] || []);
+                    } catch(e) {
+                        items = [{ name: p['menu_' + d] || '', qty: '' }];
+                    }
+                    const text = Array.isArray(items) && items.length > 0 ? items.map(i => `${i.name} (${i.qty})`).join(', ') : 'Rest Day';
+                    return `
+                        <div class="flex items-start justify-between text-[11px] border-b border-slate-800/60 pb-1 last:border-0">
+                            <span class="font-bold text-amber-400/90 uppercase font-mono w-12">${d.toUpperCase()}</span>
+                            <span class="text-slate-300 flex-1 text-right truncate ml-2">${text}</span>
+                        </div>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="glass-card border-2 border-amber-500/40 rounded-3xl p-6 space-y-4 glow-amber flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <span class="bg-amber-500/20 text-amber-300 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full font-mono">${durationLabel.toUpperCase()} PASS</span>
+                                    <h3 class="text-xl font-black text-white mt-1">${p.plan_name}</h3>
+                                    <p class="text-xs text-slate-400 mt-0.5">${cleanTagline || 'Recess healthy lunch meal'}</p>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-2xl font-black text-amber-400 font-mono">₹${p.price_per_week}</span>
+                                    <span class="text-xs text-slate-500 block font-bold">/ ${durationLabel}</span>
+                                </div>
+                            </div>
+
+                            <div class="bg-black/30 border border-white/[0.05] rounded-2xl p-3.5 space-y-2 text-xs mt-4">
+                                <div class="text-[10px] font-black uppercase text-amber-400 font-mono flex items-center justify-between">
+                                    <span>6-Day Itemized Menu Roster:</span>
+                                    <span class="text-emerald-400">Nutritious Balance ✓</span>
+                                </div>
+                                <div class="space-y-1.5 pt-1">
+                                    ${daysPreviewHtml}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                            <button onclick='openDabbaModal(${JSON.stringify(p)})' class="press-effect bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider">
+                                Edit 6-Day Menu
+                            </button>
+                            <button onclick="deleteDabba('${p.id}')" class="press-effect bg-rose-600/20 hover:bg-rose-600 text-rose-400 px-3 py-2 rounded-xl text-xs font-bold">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openDabbaModal(plan) {
+            document.getElementById('dabbaModal').classList.remove('hidden');
+            
+            if (plan) {
+                document.getElementById('dabbaModalTitle').textContent = `Edit "${plan.plan_name}" Menu`;
+                document.getElementById('dabbaId').value = plan.id;
+                document.getElementById('dabbaName').value = plan.plan_name;
+                document.getElementById('dabbaPrice').value = plan.price_per_week;
+                
+                let rawTagline = plan.tagline || '';
+                const match = rawTagline.match(/\[(\d+)\s*Days?\]/i);
+                if (match) {
+                    const days = match[1];
+                    const select = document.getElementById('dabbaValiditySelect');
+                    if (['1','2','7','15','30','90','365'].includes(days)) select.value = days;
+                    else { select.value = 'custom'; document.getElementById('dabbaCustomDays').value = days; }
+                    rawTagline = rawTagline.replace(/\[\d+\s*Days?\]/i, '').trim();
+                } else {
+                    document.getElementById('dabbaValiditySelect').value = '7';
+                }
+                toggleCustomDays('dabba');
+                document.getElementById('dabbaTagline').value = rawTagline;
+
+                ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'].forEach(d => {
+                    try {
+                        const val = plan['menu_' + d];
+                        weeklyMenuData[d] = typeof val === 'string' ? JSON.parse(val) : (val || []);
+                    } catch(e) {
+                        weeklyMenuData[d] = [{name: plan['menu_' + d] || '', qty: ''}];
+                    }
+                });
+            } else {
+                document.getElementById('dabbaModalTitle').textContent = "Create New School Dabba Tier";
+                document.getElementById('dabbaPlanForm').reset();
+                document.getElementById('dabbaId').value = 'dabba_' + Date.now();
+                document.getElementById('dabbaValiditySelect').value = '7';
+                toggleCustomDays('dabba');
+                weeklyMenuData = {
+                    mon: [{name: 'Paneer Sabzi', qty: '200g'}, {name: 'Fresh Butter Roti', qty: '4 Pcs'}],
+                    tue: [{name: 'Aloo Gobhi Masala', qty: '200g'}, {name: 'Crispy Poori', qty: '4 Pcs'}],
+                    wed: [{name: 'Nutritious Dal Khichdi', qty: '250g'}, {name: 'Roasted Papad & Pickle', qty: '1 Set'}],
+                    thu: [{name: 'Stuffed Paneer Paratha', qty: '2 Pcs'}, {name: 'Fresh Curd / Dahi', qty: '100g'}],
+                    fri: [{name: 'Mix Seasonal Sabzi', qty: '200g'}, {name: 'Jeera Rice & Roti', qty: '1 Bowl + 2 Roti'}],
+                    sat: [{name: 'Desi Pulao with Rajma', qty: '300g'}, {name: 'Healthy Salad / Sweet', qty: '1 Cup'}]
+                };
+            }
+            switchMenuDay('mon');
+        }
+
+        function closeDabbaModal() { 
+            document.getElementById('dabbaModal').classList.add('hidden'); 
+        }
+
+        async function saveDabbaPlan(e) {
+            e.preventDefault();
+            const selectVal = document.getElementById('dabbaValiditySelect').value;
+            const finalDays = selectVal === 'custom' ? (document.getElementById('dabbaCustomDays').value || 7) : selectVal;
+            const baseTagline = document.getElementById('dabbaTagline').value.trim();
+            const combinedTagline = `[${finalDays} Days] ${baseTagline}`.trim();
+
+            const planData = {
+                id: document.getElementById('dabbaId').value.trim() || ('dabba_' + Date.now()),
+                plan_name: document.getElementById('dabbaName').value.trim(),
+                price_per_week: Number(document.getElementById('dabbaPrice').value),
+                tagline: combinedTagline,
+                menu_mon: JSON.stringify(weeklyMenuData.mon),
+                menu_tue: JSON.stringify(weeklyMenuData.tue),
+                menu_wed: JSON.stringify(weeklyMenuData.wed),
+                menu_thu: JSON.stringify(weeklyMenuData.thu),
+                menu_fri: JSON.stringify(weeklyMenuData.fri),
+                menu_sat: JSON.stringify(weeklyMenuData.sat),
+                updated_at: new Date().toISOString()
+            };
+
+            const { error } = await _supabase.from('dabba_plans').upsert([planData]);
+            if (error) { 
+                alert("Error saving Dabba Plan: " + error.message); 
+                return; 
+            }
+
+            alert(`✅ Dabba Plan Saved Successfully for ${getDurationLabel(finalDays)}!`);
+            closeDabbaModal();
+            loadDabbaPlans();
+        }
+
+        async function deleteDabba(id) {
+            if (!confirm("Are you sure you want to delete this dabba plan?")) return;
+            const { error } = await _supabase.from('dabba_plans').delete().eq('id', id);
+            if (error) alert("Error: " + error.message);
+            else loadDabbaPlans();
+        }
+
+        function handleLogout() { 
+            localStorage.removeItem('meriride_user'); 
+            localStorage.removeItem('aoochale_user'); 
+            window.location.href = 'index.html'; 
+        }
+        
+        window.onload = checkAdminAuth;
+    </script>
+</body>
+</html>

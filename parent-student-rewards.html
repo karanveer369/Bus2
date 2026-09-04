@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Meriride - Student Rewards & Attendance Vault</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        body { background-color: #070d18; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+        .bg-grid { background-size: 32px 32px; background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px); }
+        .glass-card { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(14px); border: 1px solid rgba(51, 65, 85, 0.7); }
+        .gold-glow { box-shadow: 0 0 30px -5px rgba(245, 158, 11, 0.25); }
+        .flame-anim { animation: flame 1.5s infinite alternate; }
+        @keyframes flame { 0% { transform: scale(1); filter: drop-shadow(0 0 4px #f97316); } 100% { transform: scale(1.1); filter: drop-shadow(0 0 10px #ea580c); } }
+    </style>
+</head>
+<body class="min-h-screen text-slate-100 bg-grid pb-24">
+
+    <!-- TOP NAVBAR -->
+    <header class="bg-[#0b1326]/90 backdrop-blur border-b border-slate-800 sticky top-0 z-40 px-4 md:px-8 py-3.5 flex justify-between items-center shadow-lg">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                <i class="ph-fill ph-student text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-base md:text-lg font-black tracking-wide text-white flex items-center gap-2">
+                    MERIRIDE <span class="bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[9px] px-2 py-0.5 rounded-md font-extrabold uppercase">Strict Attendance Vault</span>
+                </h1>
+                <p class="text-[10px] md:text-xs text-slate-400 font-medium" id="studentHeaderInfo">Connecting to Supabase...</p>
+            </div>
+        </div>
+        
+        <!-- DIRECT REDIRECT BACK BUTTON TO parent-portal.html -->
+        <button onclick="window.location.href='parent-portal.html'" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl text-xs font-bold border border-slate-700 transition flex items-center gap-1.5 shadow-sm active:scale-95">
+            <i class="ph-bold ph-arrow-left text-sm"></i> Dashboard
+        </button>
+    </header>
+
+    <main class="max-w-5xl mx-auto p-4 md:p-6 lg:p-8 space-y-6">
+        
+        <!-- 🏆 HERO GAMIFIED CARD (EXACT CLASS + PIN + STRICT RULE NOTICE) -->
+        <div class="glass-card rounded-3xl p-6 md:p-8 border-t-4 border-t-amber-500 gold-glow relative overflow-hidden">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                <div class="md:col-span-7 space-y-2">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <!-- EXACT CLASS SAVED BY SCHOOL ADMIN -->
+                        <span id="classBadgeDisplay" class="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider font-mono">
+                            Class Loading...
+                        </span>
+                        
+                        <!-- UNIQUE 6-DIGIT PIN -->
+                        <span id="pinBadgeDisplay" class="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-mono font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                            PIN: ------
+                        </span>
+                        
+                        <span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
+                            Weekly Pass Active
+                        </span>
+                    </div>
+                    
+                    <h2 class="text-2xl md:text-3xl font-black text-white mt-1" id="heroStudentName">Student Rewards Program</h2>
+                    <p class="text-xs text-slate-400" id="heroSubtitle">
+                        ⚠️ <b class="text-amber-400">Strict Rule:</b> Minimum <b class="text-white">5 Days/Week</b> bus attendance required. If attendance is less than 5 days in a week, reward unlocks get <b class="text-rose-400">postponed by 1 Week!</b>
+                    </p>
+                </div>
+
+                <!-- QUALIFYING WEEKS STATS -->
+                <div class="md:col-span-5 bg-slate-950/80 border border-slate-800 p-5 rounded-2xl flex justify-around items-center text-center">
+                    <div>
+                        <p class="text-[9px] uppercase font-bold text-slate-400 tracking-widest">Qualifying Weeks</p>
+                        <h3 class="text-3xl font-black text-emerald-400 mt-1" id="qualifyingWeeksCount">
+                            0 <span class="text-xs text-slate-400 font-normal">Weeks</span>
+                        </h3>
+                        <p class="text-[9px] text-slate-500 font-mono mt-0.5">(≥5 Days Each)</p>
+                    </div>
+                    <div class="w-px h-10 bg-slate-800"></div>
+                    <div>
+                        <p class="text-[9px] uppercase font-bold text-slate-400 tracking-widest">Total Days Streak</p>
+                        <h3 class="text-3xl font-black text-orange-400 flex items-center justify-center gap-1 mt-1 flame-anim">
+                            🔥 <span id="streakCount">0</span>d
+                        </h3>
+                        <p class="text-[9px] text-cyan-400 font-mono font-bold mt-0.5" id="wingCategoryTxt">PRIMARY</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- 🚨 POSTPONE / WARNING ALERT BANNER -->
+        <div id="postponeAlertBanner" class="hidden bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 md:p-5 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-2xl shrink-0">
+                <i class="ph-bold ph-warning-octagon"></i>
+            </div>
+            <div>
+                <h4 class="font-bold text-rose-300 text-sm">Reward Postponed by 1 Week!</h4>
+                <p class="text-xs text-slate-400 mt-0.5" id="postponeReasonText">
+                    Child attended less than 5 days in the previous week. Complete 5 full days this week to resume progress.
+                </p>
+            </div>
+        </div>
+
+        <!-- 📅 LIVE 1-WEEK STRICT ATTENDANCE TRACKER (TARGET: 5 DAYS) -->
+        <div class="glass-card rounded-3xl p-5 md:p-6 border border-slate-800 space-y-4">
+            <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-slate-800 pb-3">
+                <div>
+                    <h3 class="font-bold text-white text-sm md:text-base flex items-center gap-2">
+                        <i class="ph-bold ph-calendar-check text-emerald-400 text-lg"></i> Weekly 5-Day Attendance Rule Tracker
+                    </h3>
+                    <p class="text-xs text-slate-400">Child must achieve at least 5 checkmarks (Mon–Sat) to qualify this week.</p>
+                </div>
+                <span id="weekRuleStatusBadge" class="bg-amber-500/10 text-amber-400 border border-amber-500/30 text-xs font-mono font-bold px-3 py-1 rounded-xl self-start sm:self-auto">
+                    0 / 5 Days Completed
+                </span>
+            </div>
+
+            <!-- 7 DAYS CIRCLE ICONS (MON TO SUN) -->
+            <div class="grid grid-cols-7 gap-2 text-center" id="weeklyDayBoxes">
+                <div class="bg-slate-950 p-2.5 rounded-2xl border border-slate-800 space-y-1">
+                    <p class="text-[9px] text-slate-400 font-bold uppercase font-mono">Mon</p>
+                    <span class="text-lg" id="dayStatus-1">⚪</span>
+                </div>
+                <div class="bg-slate-950 p-2.5 rounded-2xl border border-slate-800 space-y-1">
+                    <p class="text-[9px] text-slate-400 font-bold uppercase font-mono">Tue</p>
+                    <span class="text-lg" id="dayStatus-2">⚪</span>
+                </div>
+                <div class="bg-slate-950 p-2.5 rounded-2xl border border-slate-800 space-y-1">
+                    <p class="text-[9px] text-slate-400 font-bold uppercase font-mono">Wed</p>
+                    <span class="text-lg" id="dayStatus-3">⚪</span>
+                </div>
+                <div class="bg-slate-950 p-2.5 rounded-2xl border border-slate-800 space-y-1">
+                    <p class="text-[9px] text-slate-400 font-bold uppercase font-mono">Thu</p>
+                    <span class="text-lg" id="dayStatus-4">⚪</span>
+                </div>
+                <div class="bg-slate-950 p-2.5 rounded-2xl border border-slate-800 space-y-1">
+                    <p class="text-[9px] text-slate-400 font-bold uppercase font-mono">Fri</p>
+                    <span class="text-lg" id="dayStatus-5">⚪</span>
+                </div>
+                <div class="bg-slate-950 p-2.5 rounded-2xl border border-slate-800 space-y-1">
+                    <p class="text-[9px] text-slate-400 font-bold uppercase font-mono">Sat</p>
+                    <span class="text-lg" id="dayStatus-6">⚪</span>
+                </div>
+                <div class="bg-slate-950/50 p-2.5 rounded-2xl border border-slate-900 space-y-1 opacity-60">
+                    <p class="text-[9px] text-slate-500 font-bold uppercase font-mono">Sun</p>
+                    <span class="text-lg">🏖️</span>
+                </div>
+            </div>
+        </div>
+        <!-- 🎯 NEXT UPCOMING REWARD COUNTDOWN -->
+        <div id="nextRewardHighlightCard" class="bg-gradient-to-r from-amber-500/20 via-slate-900 to-indigo-950 border border-amber-500/40 rounded-3xl p-5 md:p-6 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div class="flex items-center gap-4">
+                <div class="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-3xl shrink-0" id="nextRewardIcon">
+                    🎁
+                </div>
+                <div>
+                    <span class="bg-amber-500/20 text-amber-300 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full font-mono border border-amber-500/30">
+                        ⚡ Next Upcoming Milestone
+                    </span>
+                    <h3 class="text-lg md:text-xl font-black text-white mt-1" id="nextRewardTitle">Loading Next Reward...</h3>
+                    <p class="text-xs text-slate-300 mt-0.5" id="nextRewardDesc">Evaluating 5-day weekly qualifying criteria...</p>
+                </div>
+            </div>
+            
+            <div class="bg-slate-950/90 border border-slate-800 px-5 py-3 rounded-2xl text-center self-stretch md:self-auto shrink-0">
+                <p class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Qualifying Weeks Left</p>
+                <p class="text-xl md:text-2xl font-black text-amber-400 font-mono" id="nextRewardWeeksCountdown">-- Weeks</p>
+            </div>
+        </div>
+
+        <!-- 🎁 DYNAMIC REWARDS CATALOG (ADMIN-CREATED FOR THIS EXACT CLASS) -->
+        <div class="space-y-4">
+            <div class="border-b border-slate-800 pb-3 flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                <div>
+                    <h3 class="text-base md:text-lg font-black text-white flex items-center gap-2">
+                        <i class="ph-bold ph-gift text-amber-400"></i> Active Rewards Catalog (<span id="curatedGradeTitle" class="text-amber-400 font-mono">Your Grade</span>)
+                    </h3>
+                    <p class="text-xs text-slate-400">Requires 3, 6, or 9 Qualifying Weeks (each week with ≥ 5 attendance days).</p>
+                </div>
+                <span id="wingPillBadge" class="bg-slate-900 border border-slate-700 text-slate-300 text-xs px-3 py-1 rounded-xl font-mono self-start sm:self-auto font-bold">
+                    Class Locked
+                </span>
+            </div>
+
+            <!-- REWARDS CARDS GRID -->
+            <div id="dynamicRewardsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div class="col-span-full p-8 text-center text-slate-500 font-mono text-xs">
+                    Querying Supabase database for qualifying rewards...
+                </div>
+            </div>
+        </div>
+
+        <!-- 📋 MY CLAIM HISTORY -->
+        <div class="glass-card rounded-3xl p-6 border border-slate-800 space-y-4">
+            <h3 class="font-bold text-white text-sm flex items-center gap-2">
+                <i class="ph-bold ph-receipt text-amber-400 text-base"></i> My Claimed & Dispatched Welfare Gifts
+            </h3>
+            <div id="studentClaimsHistory" class="space-y-2">
+                <p class="text-xs text-slate-500 font-mono">Checking reward records from database...</p>
+            </div>
+        </div>
+
+    </main>
+    <script>
+        const SUPABASE_URL = 'https://tvwhtyxosovscygvahow.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2d2h0eXhvc292c2N5Z3ZhaG93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2MDA2MzksImV4cCI6MjEwMTE3NjYzOX0.kVLKQsl4gfIex7LQJqh-GXl-QgEIdvqK8mY7AoauzGI';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let studentRecord = null;
+        let activeStreakDays = 0;
+        let qualifyingWeeks = 0;
+        let weeklyAttendedDays = 0;
+        let isPostponed = false;
+        let studentEnrolledWing = 'primary';
+        let studentEnrolledClass = 'Class 4';
+        let studentUniquePin = 'N/A';
+
+        async function initStudentRewards() {
+            const rawUser = localStorage.getItem('meriride_parent') || localStorage.getItem('aoochale_user');
+            if (!rawUser) { window.location.href = 'parent-portal.html'; return; }
+            
+            const session = JSON.parse(rawUser);
+
+            const searchPin = session.qr_code_id || session.verification_code;
+            const searchId = session.id;
+
+            let query = _supabase.from('students').select('*');
+            if (searchPin) {
+                query = query.eq('qr_code_id', searchPin);
+            } else if (searchId) {
+                query = query.eq('id', searchId);
+            }
+
+            const { data: student } = await query.maybeSingle();
+            studentRecord = student || session;
+
+            const sName = studentRecord.name || studentRecord.full_name || "Student";
+            studentEnrolledClass = studentRecord.class_grade || "Class 4";
+            studentUniquePin = studentRecord.qr_code_id || studentRecord.verification_code || "N/A";
+            activeStreakDays = studentRecord.attendance_streak || 0;
+            
+            weeklyAttendedDays = studentRecord.weekly_attended_days !== undefined ? studentRecord.weekly_attended_days : (activeStreakDays % 7 || 0);
+            qualifyingWeeks = studentRecord.qualifying_weeks !== undefined ? studentRecord.qualifying_weeks : Math.floor(activeStreakDays / 7);
+            isPostponed = studentRecord.is_postponed || false;
+
+            document.getElementById('heroStudentName').innerText = `${sName}'s Rewards Vault`;
+            document.getElementById('studentHeaderInfo').innerText = `${sName} • ${studentEnrolledClass} (PIN: ${studentUniquePin})`;
+            document.getElementById('classBadgeDisplay').innerText = studentEnrolledClass.toUpperCase();
+            document.getElementById('pinBadgeDisplay').innerText = `PIN: ${studentUniquePin}`;
+            document.getElementById('streakCount').innerText = activeStreakDays;
+            document.getElementById('qualifyingWeeksCount').innerHTML = `${qualifyingWeeks} <span class="text-xs text-slate-400 font-normal">Weeks</span>`;
+
+            let classNum = 4;
+            const match = studentEnrolledClass.toString().match(/\d+/);
+            if (match) classNum = parseInt(match[0]);
+
+            if (classNum <= 5) studentEnrolledWing = 'primary';
+            else if (classNum <= 10) studentEnrolledWing = 'secondary';
+            else studentEnrolledWing = 'senior';
+
+            const wingLabel = studentEnrolledWing === 'primary' ? 'Primary (Class 1-5)' : studentEnrolledWing === 'secondary' ? 'Secondary (Class 6-10)' : 'Senior (Class 11-12)';
+            document.getElementById('wingCategoryTxt').innerText = studentEnrolledWing.toUpperCase();
+            document.getElementById('curatedGradeTitle').innerText = `${studentEnrolledClass} • ${wingLabel}`;
+            document.getElementById('wingPillBadge').innerText = `Locked to ${studentEnrolledClass}`;
+
+            if (isPostponed) {
+                document.getElementById('postponeAlertBanner').classList.remove('hidden');
+            }
+
+            renderWeeklyAttendanceTracker();
+            await fetchAndRenderRewards();
+            loadStudentClaims();
+        }
+        function renderWeeklyAttendanceTracker() {
+            const currentDayOfWeek = new Date().getDay();
+            const attendedCount = Math.min(weeklyAttendedDays, 6);
+            const badge = document.getElementById('weekRuleStatusBadge');
+
+            if (attendedCount >= 5) {
+                badge.className = "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-mono font-bold px-3 py-1 rounded-xl self-start sm:self-auto";
+                badge.innerHTML = `✅ Week Qualified (${attendedCount}/5 Days Completed)`;
+            } else {
+                const remaining = 5 - attendedCount;
+                badge.className = "bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-mono font-bold px-3 py-1 rounded-xl self-start sm:self-auto";
+                badge.innerHTML = `⚠️ ${attendedCount} / 5 Days Completed (${remaining} More Needed This Week)`;
+            }
+
+            for (let day = 1; day <= 6; day++) {
+                const dayEl = document.getElementById(`dayStatus-${day}`);
+                if (!dayEl) continue;
+
+                if (day <= attendedCount) {
+                    dayEl.innerHTML = `✅`;
+                } else if (day === currentDayOfWeek && studentRecord.boarded) {
+                    dayEl.innerHTML = `✅`;
+                } else if (day === currentDayOfWeek) {
+                    dayEl.innerHTML = `⏳`;
+                } else {
+                    dayEl.innerHTML = `⚪`;
+                }
+            }
+        }
+
+        async function fetchAndRenderRewards() {
+            const container = document.getElementById('dynamicRewardsGrid');
+            
+            const { data: rewards } = await _supabase
+                .from('rewards')
+                .select('*')
+                .or(`target_grade.eq.${studentEnrolledWing},target_grade.eq.all`)
+                .order('required_weeks', { ascending: true });
+
+            if (!rewards || rewards.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full bg-slate-950 p-8 rounded-3xl border border-slate-800 text-center">
+                        <span class="text-3xl mb-2 block">🎁</span>
+                        <p class="text-xs text-slate-400 font-mono">No custom rewards published by Super Admin for ${studentEnrolledClass} yet.</p>
+                    </div>
+                `;
+                document.getElementById('nextRewardTitle').innerText = "All Milestones Met!";
+                document.getElementById('nextRewardDesc').innerText = "Super Admin will add new rewards soon.";
+                document.getElementById('nextRewardWeeksCountdown').innerText = "0 Weeks";
+                return;
+            }
+
+            let nextReward = null;
+            let minRemainingWeeks = Infinity;
+
+            rewards.forEach(r => {
+                const reqWeeks = r.required_weeks || 3;
+                if (qualifyingWeeks < reqWeeks && (reqWeeks - qualifyingWeeks) < minRemainingWeeks) {
+                    minRemainingWeeks = reqWeeks - qualifyingWeeks;
+                    nextReward = r;
+                }
+            });
+
+            if (nextReward) {
+                document.getElementById('nextRewardIcon').innerText = nextReward.icon || '🎁';
+                document.getElementById('nextRewardTitle').innerText = nextReward.title;
+                document.getElementById('nextRewardDesc').innerText = `${nextReward.description} • Requires ${nextReward.required_weeks} Qualifying Weeks (≥5 days/week).`;
+                document.getElementById('nextRewardWeeksCountdown').innerText = `${minRemainingWeeks} Qualifying Weeks`;
+            } else {
+                document.getElementById('nextRewardIcon').innerText = '🏆';
+                document.getElementById('nextRewardTitle').innerText = "🎉 All Milestones Unlocked!";
+                document.getElementById('nextRewardDesc').innerText = "You have completed all qualifying milestones with perfect weekly attendance!";
+                document.getElementById('nextRewardWeeksCountdown').innerText = "Unlocked!";
+            }
+
+            container.innerHTML = rewards.map(r => {
+                const reqWeeks = r.required_weeks || 3;
+                const isUnlocked = qualifyingWeeks >= reqWeeks;
+                const progressPct = Math.min(Math.round((qualifyingWeeks / reqWeeks) * 100), 100);
+
+                return `
+                    <div class="glass-card rounded-2xl p-5 border ${isUnlocked ? 'border-2 border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.2)]' : 'border-slate-800'} space-y-3 relative flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-start mb-2">
+                                <span class="text-3xl">${r.icon || '🎁'}</span>
+                                <span class="text-[9px] font-mono font-bold ${isUnlocked ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-blue-500/10 text-blue-400 border border-blue-500/30'} px-2.5 py-1 rounded-full uppercase">
+                                    ${reqWeeks} Qualifying Weeks
+                                </span>
+                            </div>
+                            <h4 class="font-bold text-white text-sm">${r.title}</h4>
+                            <p class="text-[11px] text-slate-400 mt-1">${r.description}</p>
+                        </div>
+
+                        <div class="space-y-3 pt-2">
+                            <div class="space-y-1">
+                                <div class="flex justify-between text-[10px] font-mono text-slate-400">
+                                    <span>Weekly Milestone Progress</span>
+                                    <span class="${isUnlocked ? 'text-emerald-400 font-bold' : 'text-slate-400'}">${qualifyingWeeks} / ${reqWeeks} Weeks</span>
+                                </div>
+                                <div class="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
+                                    <div class="${isUnlocked ? 'bg-emerald-500' : 'bg-blue-500'} h-full rounded-full transition-all duration-700" style="width: ${progressPct}%;"></div>
+                                </div>
+                            </div>
+
+                            <button onclick="claimReward('${r.id}', '${r.title}', ${reqWeeks})" ${!isUnlocked ? 'disabled' : ''} class="w-full ${isUnlocked ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg cursor-pointer' : 'bg-slate-800 text-slate-500 cursor-not-allowed'} font-black py-2.5 rounded-xl text-xs uppercase tracking-wider transition">
+                                ${isUnlocked ? 'Claim Reward! 🎁' : `Locked (${reqWeeks - qualifyingWeeks} Qualifying Weeks Left)`}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        async function claimReward(rewardId, rewardTitle, reqWeeks) {
+            if (qualifyingWeeks < reqWeeks) {
+                return alert(`⚠️ Cannot claim yet! Child needs ${reqWeeks} Qualifying Weeks (min 5 days/week).`);
+            }
+
+            confetti({ particleCount: 140, spread: 75, origin: { y: 0.6 } });
+
+            const { error } = await _supabase.from('student_reward_claims').insert({
+                student_id: studentRecord?.id,
+                qr_code_id: studentUniquePin,
+                student_name: studentRecord?.name || studentRecord?.full_name || "Student",
+                class_grade: studentEnrolledClass,
+                school_id: studentRecord?.school_id,
+                reward_id: rewardId,
+                reward_name: rewardTitle,
+                status: 'pending'
+            });
+
+            if (!error) {
+                alert(`🎉 Congratulations! You have claimed "${rewardTitle}".\n\nPIN: ${studentUniquePin} (${studentEnrolledClass}). Super Admin has received your verified claim for school delivery!`);
+                loadStudentClaims();
+            } else {
+                alert("Error claiming reward: " + error.message);
+            }
+        }
+
+        async function loadStudentClaims() {
+            const listEl = document.getElementById('studentClaimsHistory');
+            
+            let query = _supabase.from('student_reward_claims').select('*');
+            if (studentUniquePin && studentUniquePin !== 'N/A') {
+                query = query.or(`student_id.eq.${studentRecord?.id || '00000000-0000-0000-0000-000000000000'},qr_code_id.eq.${studentUniquePin}`);
+            } else {
+                query = query.eq('student_id', studentRecord?.id);
+            }
+
+            const { data: claims } = await query.order('created_at', { ascending: false });
+
+            if (!claims || claims.length === 0) {
+                listEl.innerHTML = `<p class="text-xs text-slate-500 font-mono">No claimed rewards yet. Maintain ≥5 days/week attendance!</p>`;
+                return;
+            }
+
+            listEl.innerHTML = claims.map(c => `
+                <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
+                    <div>
+                        <p class="font-bold text-white">🎁 ${c.reward_name}</p>
+                        <p class="text-[10px] text-slate-400 font-mono">PIN: <b class="text-amber-400">${c.qr_code_id || studentUniquePin}</b> • Class: <b>${c.class_grade || studentEnrolledClass}</b></p>
+                    </div>
+                    <span class="px-2.5 py-1 rounded-md font-bold uppercase text-[10px] ${c.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}">
+                        ${c.status}
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        window.onload = initStudentRewards;
+    </script>
+</body>
+</html>

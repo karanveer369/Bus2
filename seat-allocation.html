@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meriride - Cloud Synced Seat Allocator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .bg-grid { background-size: 30px 30px; background-image: linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px); }
+        @keyframes fadeInScale { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+        .seat-anim { animation: fadeInScale 0.4s ease-out forwards; opacity: 0; }
+        .seat { width: 48px; height: 52px; border-radius: 8px 8px 4px 4px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; position: relative; transition: all 0.2s; }
+        .seat-empty { background-color: #1e293b; border: 2px solid #334155; color: #94a3b8; cursor: pointer; }
+        .seat-empty:hover { background-color: #3b82f6; border-color: #2563eb; color: white; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59,130,246,0.3); }
+        .seat-occupied { background-color: #059669; border: 2px solid #047857; color: white; cursor: pointer; box-shadow: 0 4px 10px rgba(5, 150, 105, 0.3); }
+        .seat-occupied:hover { background-color: #047857; border-color: #064e3b; transform: translateY(-2px); }
+        .seat-occupied .student-name { position: absolute; bottom: -10px; background: #0f172a; border: 1px solid #334155; color: #fbbf24; font-size: 9px; padding: 2px 6px; border-radius: 4px; white-space: nowrap; z-index: 10; pointer-events: none; }
+    </style>
+</head>
+<body class="bg-[#050b14] text-slate-100 min-h-screen bg-grid p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-900 border border-slate-800 p-5 md:p-6 rounded-2xl mb-6 shadow-xl">
+            <div>
+                <span class="bg-blue-500/10 text-blue-400 border border-blue-500/30 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest inline-block mb-2">Cloud Synced Fleet</span>
+                <h1 class="text-2xl md:text-3xl font-black text-white tracking-tight">Smart Seat Allocator</h1>
+            </div>
+            <a href="school-dashboard.html" class="mt-4 md:mt-0 bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition shadow-md">← Back to Command Center</a>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- LEFT PANEL: Controls -->
+            <div class="lg:col-span-5 space-y-5 h-fit">
+                
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-5">
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-2">1. Select Bus Route & Driver</label>
+                        <select id="busSelector" onchange="onBusChange()" class="w-full bg-slate-950 border border-slate-700 p-3.5 rounded-xl text-sm text-white font-bold outline-none focus:border-blue-500 transition">
+                            <option value="">-- Choose a Bus --</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-2">2. Bus Capacity (Total Seats)</label>
+                        <div class="flex gap-2">
+                            <input type="number" id="seatCount" min="10" max="80" value="40" class="w-full bg-slate-950 border border-slate-700 p-3.5 rounded-xl text-sm text-white font-bold outline-none focus:border-blue-500 transition">
+                            <button onclick="updateBusCapacity()" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition whitespace-nowrap shadow-lg">Save</button>
+                        </div>
+                    </div>
+
+                    <div id="studentSelectionDiv" class="hidden opacity-0 transition-opacity duration-500 pt-4 border-t border-slate-800">
+                        <label class="block text-[10px] font-bold uppercase text-emerald-400 mb-2">3. Assign Student</label>
+                        <select id="studentSelector" class="w-full bg-slate-950 border border-emerald-900/50 p-3.5 rounded-xl text-sm text-white font-bold outline-none focus:border-emerald-500 transition">
+                            <option value="">-- Choose an Unassigned Student --</option>
+                        </select>
+                        <div class="mt-4 p-3 bg-slate-800/50 border border-slate-700 rounded-lg flex items-center gap-3">
+                            <span class="text-lg">💡</span>
+                            <p class="text-[11px] text-slate-400 font-mono">Select a student from dropdown, then tap any empty seat. Tap an occupied seat to Shift or Remove.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Danger Zone: Reset Bus -->
+                <div id="dangerZone" class="hidden bg-rose-950/30 border border-rose-900/50 rounded-2xl p-5 shadow-xl text-center">
+                    <p class="text-[10px] font-bold uppercase text-rose-500 mb-2 tracking-widest">Danger Zone</p>
+                    <button onclick="resetBusSeats()" class="w-full bg-rose-600 hover:bg-rose-500 text-white px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition shadow-lg shadow-rose-600/20">
+                        🗑️ Clear All Seats For This Bus
+                    </button>
+                </div>
+            </div>
+
+            <!-- RIGHT PANEL: Bus Layout -->
+            <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col items-center relative">
+                
+                <!-- Shifting Alert Banner -->
+                <div id="moveAlert" class="hidden absolute top-4 left-4 right-4 z-20 bg-purple-600/90 backdrop-blur-md border border-purple-400 rounded-xl p-3 flex justify-between items-center shadow-2xl">
+                    <p class="text-sm text-white font-medium">Shifting: <strong id="movingStudentName" class="font-black text-yellow-300 tracking-wide"></strong>. Tap a new empty seat.</p>
+                    <button onclick="cancelMove()" class="bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition">Cancel</button>
+                </div>
+
+                <div class="w-full flex justify-between items-center mb-6">
+                    <h2 class="text-lg font-bold text-white">Cloud Blueprint</h2>
+                    <span id="capacityBadge" class="text-xs font-bold bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-lg text-slate-400">Awaiting Setup</span>
+                </div>
+
+                <div class="w-full max-w-[320px] bg-slate-950 border-2 border-slate-700 rounded-[3rem] p-4 md:p-6 shadow-2xl relative min-h-[500px] flex flex-col">
+                    <div class="w-full flex justify-between items-end border-b-2 border-dashed border-slate-800 pb-6 mb-6">
+                        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-2">Entry / Driver</div>
+                        <div class="pr-2">
+                            <svg class="w-8 h-8 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"></circle><circle cx="12" cy="12" r="3" stroke-width="2"></circle><path stroke-linecap="round" stroke-width="2" d="M12 2v7M22 12h-7M12 22v-7M2 12h7"></path></svg>
+                        </div>
+                    </div>
+
+                    <div id="busLayout" class="w-full flex flex-col gap-4 pb-6">
+                        <div class="text-center text-slate-600 font-mono text-sm mt-10">Select a bus route to view cloud layout.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🛠️ SMART SEAT ACTION MODAL (Edit/Remove) -->
+    <div id="seatActionModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-sm w-full shadow-2xl transform scale-100 transition-all">
+            <div class="text-center mb-6">
+                <span class="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest">Seat Management</span>
+                <h3 class="text-xl font-black text-white mt-3">Seat <span id="actionModalSeat" class="text-emerald-400"></span></h3>
+                <p class="text-sm text-slate-400 font-mono mt-1" id="actionModalStudentName">Student Name</p>
+            </div>
+            
+            <div class="space-y-3">
+                <button onclick="initiateMove()" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3.5 rounded-xl text-sm transition flex justify-center items-center gap-2">
+                    <span>🔄</span> Shift To Another Seat
+                </button>
+                <button onclick="confirmUnassign()" class="w-full bg-rose-600 hover:bg-rose-500 text-white font-bold py-3.5 rounded-xl text-sm transition flex justify-center items-center gap-2">
+                    <span>🗑️</span> Remove From Bus
+                </button>
+                <button onclick="closeSeatActionModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl text-sm transition mt-2">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+    <script>
+        const SUPABASE_URL = 'https://tvwhtyxosovscygvahow.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2d2h0eXhvc292c2N5Z3ZhaG93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2MDA2MzksImV4cCI6MjEwMTE3NjYzOX0.kVLKQsl4gfIex7LQJqh-GXl-QgEIdvqK8mY7AoauzGI';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        let schoolProfile = JSON.parse(localStorage.getItem('meriride_user'));
+        let currentAssignments = [];
+        let busesList = [];
+        let isProcessing = false; // Anti-Double-Click Lock
+
+        // Variables for Shifting Feature
+        let selectedSeatForAction = null; 
+        let movingStudent = null;
+
+        async function initialize() {
+            if(!schoolProfile) { window.location.href = 'index.html'; return; }
+            
+            const { data: buses } = await _supabase.from('school_fleet').select('*').eq('school_id', schoolProfile.id);
+            busesList = buses || [];
+            
+            const busSel = document.getElementById('busSelector');
+            if (busesList.length > 0) {
+                busSel.innerHTML = `<option value="">-- Choose a Bus --</option>`;
+                busesList.forEach(b => {
+                    busSel.innerHTML += `<option value="${b.id}">🚌 ${b.bus_number} | Driver: ${b.driver_name}</option>`;
+                });
+            } else {
+                busSel.innerHTML = `<option value="">No Buses Found</option>`;
+            }
+
+            await loadStudentsDropdown();
+        }
+
+        // 🧠 STRICT FILTER: Uses PIN & Student ID to prevent duplicates
+        async function loadStudentsDropdown() {
+            const { data: students } = await _supabase.from('students').select('*').eq('school_id', schoolProfile.id);
+            const { data: assignedSeats } = await _supabase.from('seat_assignments').select('student_id').eq('school_id', schoolProfile.id);
+            
+            const assignedIds = assignedSeats ? assignedSeats.map(a => a.student_id) : [];
+            const stdSel = document.getElementById('studentSelector');
+            
+            stdSel.innerHTML = `<option value="">-- Choose an Unassigned Student --</option>`;
+            students?.forEach(s => {
+                if (!assignedIds.includes(s.id)) {
+                    stdSel.innerHTML += `<option value="${s.id}" data-name="${s.name}">${s.name} (PIN: ${s.qr_code_id || 'N/A'})</option>`;
+                }
+            });
+        }
+
+        async function onBusChange() {
+            const busId = document.getElementById('busSelector').value;
+            if(!busId) {
+                document.getElementById('studentSelectionDiv').classList.add('hidden');
+                document.getElementById('dangerZone').classList.add('hidden');
+                document.getElementById('busLayout').innerHTML = `<div class="text-center text-slate-600 font-mono text-sm mt-10">Select a bus route.</div>`;
+                return;
+            }
+
+            const selectedBus = busesList.find(b => b.id === busId);
+            const capacity = selectedBus?.capacity || 40;
+            document.getElementById('seatCount').value = capacity;
+
+            await renderBusLayout(busId, capacity);
+            document.getElementById('dangerZone').classList.remove('hidden');
+        }
+
+        async function updateBusCapacity() {
+            const busId = document.getElementById('busSelector').value;
+            const newCapacity = parseInt(document.getElementById('seatCount').value);
+            
+            if(!busId) return alert("Please select a bus first.");
+            if(!newCapacity || newCapacity < 5) return alert("Enter valid capacity.");
+
+            const { error } = await _supabase.from('school_fleet').update({ capacity: newCapacity }).eq('id', busId);
+
+            if(!error) {
+                const busObj = busesList.find(b => b.id === busId);
+                if(busObj) busObj.capacity = newCapacity;
+                renderBusLayout(busId, newCapacity);
+            }
+        }
+
+        async function renderBusLayout(busId, seatCount) {
+            const layout = document.getElementById('busLayout');
+            const stdDiv = document.getElementById('studentSelectionDiv');
+            
+            const { data: assignments } = await _supabase.from('seat_assignments').select('*').eq('bus_id', busId);
+            currentAssignments = assignments || [];
+            
+            document.getElementById('capacityBadge').innerHTML = `<span class="text-emerald-400 font-bold">${currentAssignments.length}</span> / ${seatCount} Booked`;
+            stdDiv.classList.remove('hidden');
+            setTimeout(() => stdDiv.classList.remove('opacity-0'), 50);
+
+            layout.innerHTML = '';
+            let currentSeat = 1;
+            const totalRows = Math.ceil(seatCount / 4);
+
+            for(let row = 1; row <= totalRows; row++) {
+                let rowHTML = `<div class="flex justify-between items-center w-full px-2">`;
+                rowHTML += `<div class="flex gap-3">`;
+                for(let i=0; i<2; i++) {
+                    if (currentSeat <= seatCount) { rowHTML += getSeatHTML(currentSeat); currentSeat++; } else { rowHTML += `<div class="w-[48px]"></div>`; }
+                }
+                rowHTML += `</div><div class="w-6"></div><div class="flex gap-3">`;
+                for(let i=0; i<2; i++) {
+                    if (currentSeat <= seatCount) { rowHTML += getSeatHTML(currentSeat); currentSeat++; } else { rowHTML += `<div class="w-[48px]"></div>`; }
+                }
+                rowHTML += `</div></div>`;
+                layout.innerHTML += rowHTML;
+            }
+        }
+
+        function getSeatHTML(seatNum) {
+            const booking = currentAssignments.find(a => a.seat_number === seatNum);
+            const delay = seatNum * 0.02;
+            
+            if (booking) {
+                const firstName = booking.student_name.split(' ')[0];
+                return `
+                    <div class="seat seat-occupied seat-anim" style="animation-delay: ${delay}s" onclick="openSeatActionModal('${booking.id}', ${seatNum}, '${booking.student_name}', '${booking.student_id}')">
+                        ${seatNum}
+                        <span class="student-name">${firstName}</span>
+                    </div>
+                `;
+            } else {
+                return `
+                    <div class="seat seat-empty seat-anim" style="animation-delay: ${delay}s" onclick="handleEmptySeatClick(${seatNum})">
+                        ${seatNum}
+                    </div>
+                `;
+            }
+        }
+
+        // 🟢 SMART EDIT: Seat Action Modal
+        function openSeatActionModal(assignmentId, seatNum, studentName, studentId) {
+            if(movingStudent) return alert("You are already shifting a student. Tap an empty seat or cancel.");
+            selectedSeatForAction = { assignmentId, seatNum, studentName, studentId };
+            document.getElementById('actionModalSeat').textContent = seatNum;
+            document.getElementById('actionModalStudentName').textContent = studentName;
+            document.getElementById('seatActionModal').classList.remove('hidden');
+        }
+
+        function closeSeatActionModal() {
+            document.getElementById('seatActionModal').classList.add('hidden');
+            selectedSeatForAction = null;
+        }
+
+        // ACTION: Remove Student
+        async function confirmUnassign() {
+            if(!selectedSeatForAction || isProcessing) return;
+            isProcessing = true;
+            
+            const { assignmentId, seatNum, studentName, studentId } = selectedSeatForAction;
+            closeSeatActionModal();
+
+            if(!confirm(`Are you sure you want to remove ${studentName} from Seat ${seatNum}?`)) {
+                isProcessing = false; return;
+            }
+
+            const busId = document.getElementById('busSelector').value;
+            const seatCount = parseInt(document.getElementById('seatCount').value);
+
+            await _supabase.from('seat_assignments').delete().eq('id', assignmentId);
+            await _supabase.from('students').update({ bus_id: null }).eq('id', studentId);
+
+            await renderBusLayout(busId, seatCount);
+            await loadStudentsDropdown();
+            isProcessing = false;
+        }
+
+        // ACTION: Shift Student
+        function initiateMove() {
+            movingStudent = selectedSeatForAction;
+            closeSeatActionModal();
+            document.getElementById('movingStudentName').textContent = movingStudent.studentName;
+            document.getElementById('moveAlert').classList.remove('hidden');
+        }
+
+        function cancelMove() {
+            movingStudent = null;
+            document.getElementById('moveAlert').classList.add('hidden');
+        }
+
+        // 🟢 HANDLE EMPTY SEAT CLICKS (For New Assign OR Shifting)
+        async function handleEmptySeatClick(seatNum) {
+            if (isProcessing) return;
+
+            const busId = document.getElementById('busSelector').value;
+            const seatCount = parseInt(document.getElementById('seatCount').value);
+
+            // SCENARIO 1: We are Shifting an existing student
+            if (movingStudent) {
+                if(!confirm(`Shift ${movingStudent.studentName} to Seat ${seatNum}?`)) return;
+                isProcessing = true;
+
+                const { error } = await _supabase.from('seat_assignments')
+                    .update({ seat_number: seatNum })
+                    .eq('id', movingStudent.assignmentId);
+
+                if(error) alert(error.message);
+                else {
+                    cancelMove();
+                    await renderBusLayout(busId, seatCount);
+                }
+                isProcessing = false;
+                return;
+            }
+
+            // SCENARIO 2: Normal Assignment from Dropdown
+            const stdSelect = document.getElementById('studentSelector');
+            const studentId = stdSelect.value;
+            
+            if(!studentId) { alert("⚠️ Please select an unassigned student from Step 3 first!"); stdSelect.focus(); return; }
+
+            // DB Double Check to ensure no duplicates!
+            const isAlreadyAssigned = currentAssignments.some(a => a.student_id === studentId);
+            if(isAlreadyAssigned) { alert("⚠️ This student is already assigned to a seat! Refreshing data..."); await loadStudentsDropdown(); return; }
+
+            const studentName = stdSelect.options[stdSelect.selectedIndex].getAttribute('data-name');
+            if(!confirm(`Confirm Seat ${seatNum} for ${studentName}?`)) return;
+
+            isProcessing = true;
+            const { error } = await _supabase.from('seat_assignments').insert([{
+                school_id: schoolProfile.id, bus_id: busId, seat_number: seatNum, student_id: studentId, student_name: studentName
+            }]);
+            
+            await _supabase.from('students').update({ bus_id: busId }).eq('id', studentId);
+
+            if(error) { alert("Cloud Sync Error: " + error.message); } 
+            else { await loadStudentsDropdown(); await renderBusLayout(busId, seatCount); }
+            isProcessing = false;
+        }
+
+        // 🔴 MASTER RESET BUS (100% Bulletproof Ghost Data Wiper)
+        async function resetBusSeats() {
+            const busId = document.getElementById('busSelector').value;
+            if(!busId) return;
+
+            // FIX: Made it case-insensitive and added a proper Cancel Alert
+            const confirmPin = prompt("🚨 DANGER: This will remove ALL students from this bus.\n\nType 'RESET' to confirm:");
+            if(!confirmPin || confirmPin.trim().toUpperCase() !== 'RESET') {
+                alert("❌ Cancelled! You must type 'RESET' exactly to clear the bus.");
+                return;
+            }
+
+            isProcessing = true;
+            document.body.style.cursor = 'wait';
+            
+            try {
+                // 1. Fetch all assignments to get student IDs BEFORE deleting
+                const { data: seats } = await _supabase.from('seat_assignments').select('student_id').eq('bus_id', busId);
+                
+                // 2. Wipe seat assignments for this bus
+                await _supabase.from('seat_assignments').delete().eq('bus_id', busId);
+                
+                // 3. Clear bus_id from students who natively have this bus_id
+                await _supabase.from('students').update({ bus_id: null }).eq('bus_id', busId);
+                
+                // 4. Clear bus_id from Ghost Students (whose IDs were in the seat table but maybe bus_id was null/different)
+                if (seats && seats.length > 0) {
+                    const studentIds = seats.map(s => s.student_id);
+                    await _supabase.from('students').update({ bus_id: null }).in('id', studentIds);
+                }
+
+                alert("✅ Success! All seats for this bus are now 100% clear.");
+                await loadStudentsDropdown();
+                await renderBusLayout(busId, document.getElementById('seatCount').value);
+            } catch(err) {
+                alert("Error clearing seats: " + err.message);
+            }
+            
+            document.body.style.cursor = 'default';
+            isProcessing = false;
+        }
+
+        initialize();
+    </script>
+</body>
+</html>

@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Meriride - Parent Portal PRO</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+  <style>
+    body { background-color: #050b14; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; height: 100dvh; overflow: hidden; }
+    .leaflet-container { width: 100%; height: 100%; background: #080d18; }
+    .glass-panel { background: rgba(10, 17, 32, 0.94); backdrop-filter: blur(14px); border: 1px solid rgba(255, 255, 255, 0.1); }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .step-active { background-color: #10b981 !important; border-color: #34d399 !important; box-shadow: 0 0 16px rgba(16, 185, 129, 0.9); }
+    .car-marker-container { transition: transform 0.15s linear; transform-origin: center center; }
+    .draggable-pin { cursor: grab; }
+    .draggable-pin:active { cursor: grabbing; transform: scale(1.15); }
+    input[type=range] { accent-color: #38bdf8; }
+    .pulse-ring { animation: pulseBorder 2s infinite; }
+    @keyframes pulseBorder { 0% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(14, 165, 233, 0); } 100% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0); } }
+  </style>
+</head>
+<body class="bg-[#050b14] text-slate-100 font-sans antialiased select-none flex flex-col h-[100dvh]">
+
+  <!-- AUDIO INITIALIZATION GATE -->
+  <div id="audioGateModal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-[99999] flex flex-col items-center justify-center p-6 text-center text-white">
+    <div class="w-16 h-16 bg-sky-600/20 border-2 border-sky-500 rounded-2xl flex items-center justify-center text-3xl mb-4 shadow-[0_0_25px_rgba(14,165,233,0.5)] animate-pulse">🚌</div>
+    <h1 class="text-xl md:text-2xl font-black tracking-wider text-white">Meriride Parent Radar</h1>
+    <p class="text-xs text-slate-400 font-mono mt-1.5 max-w-xs">Tap below to activate real-time telemetry, electronic alarm siren and live route syncing.</p>
+    <button onclick="initializeParentSession()" class="mt-6 bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-black px-7 py-3 rounded-xl text-xs uppercase tracking-widest shadow-xl transition transform active:scale-95 cursor-pointer">
+      🚀 Start Live Tracking
+    </button>
+  </div>
+
+  <!-- 60M EMERGENCY SIREN POPUP -->
+  <div id="sirenEmergencyModal" class="hidden fixed inset-0 bg-rose-600/95 backdrop-blur-md z-[99999] flex-col items-center justify-center text-white p-6 text-center animate-pulse shadow-2xl">
+    <div class="w-20 h-20 bg-white text-rose-600 rounded-full flex items-center justify-center text-4xl mb-3 shadow-2xl animate-bounce">🚨</div>
+    <h1 class="text-xl md:text-3xl font-black uppercase tracking-wider">BUS AT YOUR STOP!</h1>
+    <p class="text-xs font-mono mt-2 max-w-xs bg-rose-800/80 p-3 rounded-xl border border-rose-400/30">Bus is within 60 meters of your pickup point! Please prepare to board.</p>
+    <button onclick="dismissSiren()" class="mt-6 bg-white text-rose-600 font-black px-8 py-3.5 rounded-xl text-xs uppercase tracking-widest cursor-pointer shadow-xl active:scale-95 transition">
+      ✅ Acknowledge & Dismiss
+    </button>
+  </div>
+  <!-- HEADER -->
+  <header class="z-30 bg-[#0a1120]/95 border-b border-slate-800/80 px-3 md:px-4 py-2 flex items-center justify-between shadow-md shrink-0">
+    <div class="flex items-center gap-2">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-sky-600 to-indigo-600 flex items-center justify-center text-white shadow-sm">
+        <i class="fa-solid fa-school text-xs"></i>
+      </div>
+      <div>
+        <h1 class="font-bold text-xs leading-tight text-white flex items-center gap-1">
+          Meriride <span class="text-[8px] uppercase font-black px-1 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">Parent</span>
+        </h1>
+        <p class="text-[10px] text-slate-400 font-mono" id="headerBusId">Trip: SCH-306-01</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-1.5 sm:gap-2">
+      <select id="studentSelectDropdown" onchange="switchStudentProfile(this.value)" class="bg-slate-900 border border-sky-500/40 text-sky-300 text-[11px] font-mono font-bold py-1 px-2 rounded-lg outline-none max-w-[130px] truncate cursor-pointer">
+        <option value="">Syncing Children...</option>
+      </select>
+      <button onclick="toggleTestingLabDrawer()" class="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center justify-center text-xs hover:bg-amber-500/20 transition cursor-pointer" title="Testing Lab"><i class="fa-solid fa-flask"></i></button>
+      <!-- MAP CONTROLS -->
+      <button onclick="centerMapOnSchool()" class="w-7 h-7 rounded-lg bg-slate-800 text-emerald-400 border border-slate-700 flex items-center justify-center text-xs hover:bg-slate-700 transition cursor-pointer" title="Center School Gate"><i class="fa-solid fa-school"></i></button>
+      <button onclick="centerOnBus()" class="w-7 h-7 rounded-lg bg-slate-800 text-sky-400 border border-slate-700 flex items-center justify-center text-xs hover:bg-slate-700 transition cursor-pointer" title="Center Bus"><i class="fa-solid fa-crosshairs"></i></button>
+      <button onclick="centerMapOnPickup()" class="w-7 h-7 rounded-lg bg-slate-800 text-amber-400 border border-slate-700 flex items-center justify-center text-xs hover:bg-slate-700 transition cursor-pointer" title="Center Stop"><i class="fa-solid fa-house"></i></button>
+      <button onclick="logout()" class="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center justify-center text-xs hover:bg-rose-500/20 transition cursor-pointer" title="Logout"><i class="fa-solid fa-power-off"></i></button>
+    </div>
+  </header>
+
+  <!-- MAP CONTAINER & HUD -->
+  <div class="relative w-full h-[40dvh] min-h-[220px] z-0 shrink-0 border-b border-slate-800">
+    <div id="frontLiveMap" class="w-full h-full"></div>
+    <div class="absolute top-2.5 left-2.5 right-2.5 z-[400] flex justify-between items-center pointer-events-none gap-2">
+      <div class="glass-panel px-2.5 py-1 rounded-lg flex items-center gap-2 text-[11px] font-mono pointer-events-auto shadow-lg">
+        <span class="w-2.5 h-2.5 rounded-full bg-rose-500" id="livePingDot"></span>
+        <span id="liveStatusText" class="font-bold text-rose-400">Offline</span>
+        <span class="text-slate-600">|</span>
+        <span id="liveSpeedText" class="text-emerald-400 font-black">0 km/h</span>
+      </div>
+      <div class="glass-panel px-2.5 py-1 rounded-lg text-[11px] font-mono text-sky-300 pointer-events-auto shadow-lg flex items-center gap-1">
+        <span class="text-[9px] text-slate-400 uppercase font-bold">To Stop:</span>
+        <span id="liveDistanceText" class="font-black text-white">--</span>
+      </div>
+    </div>
+    <div class="absolute bottom-2.5 left-2.5 z-[400] glass-panel px-2.5 py-1 rounded-lg text-[9px] font-mono text-slate-300 pointer-events-auto shadow-md">
+      Bus: <span id="hudBusCoord" class="text-amber-400 font-bold">--</span> | Stop: <span id="hudStopCoord" class="text-emerald-400 font-bold">--</span>
+    </div>
+    <div id="dragHelperBanner" class="hidden absolute bottom-3 left-3 right-3 z-[400] glass-panel p-2 rounded-xl border border-amber-500/50 text-amber-200 text-[11px] font-mono flex items-center justify-between shadow-2xl pointer-events-auto">
+      <span>📍 Drag 🏠 pin or tap map to set!</span>
+      <button onclick="saveCurrentMarkerStopToDb()" class="bg-amber-500 text-slate-950 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase">Save</button>
+    </div>
+    <div id="driverWaitingOverlay" class="absolute inset-0 bg-slate-950/75 backdrop-blur-[2px] z-[390] flex flex-col items-center justify-center text-center p-3 pointer-events-none transition-opacity duration-300">
+      <i class="fa-solid fa-satellite-dish text-sky-400 text-lg mb-1 animate-pulse"></i>
+      <p class="text-xs font-bold text-white">Awaiting Driver Telemetry</p>
+    </div>
+  </div>
+  <!-- TESTING LAB DRAWER (6-STAGE MANUAL TESTING) -->
+  <div id="testingLabDrawer" class="hidden bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950/90 border-b border-indigo-500/40 p-3 z-20 space-y-2 shrink-0 shadow-xl">
+    <div class="flex justify-between items-center text-xs font-mono">
+      <span class="text-amber-300 font-bold flex items-center gap-1.5"><i class="fa-solid fa-flask text-amber-400"></i> Milestone Simulation Lab</span>
+      <button onclick="forceCleanResetAllDots()" class="bg-rose-600/20 text-rose-400 border border-rose-500/40 px-2 py-0.5 rounded text-[10px] font-bold uppercase cursor-pointer">Reset Dots</button>
+    </div>
+    <div class="bg-slate-950/80 p-2 rounded-xl border border-slate-800 space-y-1">
+      <div class="flex justify-between items-center text-[10px] font-mono">
+        <span class="text-slate-400">Simulate Distance:</span>
+        <b id="sliderDistanceDisplay" class="text-sky-400 text-xs">500 m</b>
+      </div>
+      <input type="range" id="simDistanceSlider" min="0" max="1000" step="10" value="500" oninput="handleSimulationSlider(this.value)" class="w-full cursor-pointer h-1.5 bg-slate-800 rounded-lg">
+    </div>
+    <div class="pt-1.5 border-t border-slate-800 space-y-1">
+      <p class="text-[9px] font-mono text-slate-400 font-bold uppercase">Trigger Specific Milestone:</p>
+      <div class="grid grid-cols-3 gap-1.5 font-mono text-[10px]">
+        <button onclick="testSpecificDotStage(1)" class="bg-slate-800 hover:bg-slate-700 text-sky-300 py-1.5 px-2 rounded-lg font-bold border border-slate-700">1. Trip Start</button>
+        <button onclick="testSpecificDotStage(2)" class="bg-slate-800 hover:bg-slate-700 text-sky-300 py-1.5 px-2 rounded-lg font-bold border border-slate-700">2. 200m Range</button>
+        <button onclick="testSpecificDotStage(3)" class="bg-rose-950/70 hover:bg-rose-900 text-rose-300 py-1.5 px-2 rounded-lg font-bold border border-rose-500/40">3. 60m Siren</button>
+        <button onclick="testSpecificDotStage(4)" class="bg-slate-800 hover:bg-slate-700 text-emerald-300 py-1.5 px-2 rounded-lg font-bold border border-slate-700">4. Boarded</button>
+        <button onclick="testSpecificDotStage(5)" class="bg-slate-800 hover:bg-slate-700 text-indigo-300 py-1.5 px-2 rounded-lg font-bold border border-slate-700">5. En Route</button>
+        <button onclick="testSpecificDotStage(6)" class="bg-slate-800 hover:bg-slate-700 text-amber-300 py-1.5 px-2 rounded-lg font-bold border border-slate-700">6. School Gate</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN DASHBOARD -->
+  <main class="flex-1 bg-[#0a1120] p-3.5 overflow-y-auto no-scrollbar space-y-3.5 relative z-10 pb-24">
+    <div id="view-home" class="space-y-3.5 view-section">
+      
+      <!-- PROFILE CARD -->
+      <div class="flex justify-between items-center bg-slate-900/90 p-3 rounded-2xl border border-slate-800 shadow-md">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow"><i class="fa-solid fa-child"></i></div>
+          <div>
+            <h3 class="font-bold text-white text-xs" id="studentNameDisplay">Loading...</h3>
+            <p id="studentClassDisplay" class="text-[10px] text-slate-400 font-mono">Class: -- • PIN: --</p>
+          </div>
+        </div>
+        <div class="text-right font-mono">
+          <span class="text-[8px] text-slate-400 uppercase font-bold">Est. Arrival</span>
+          <p id="liveEtaText" class="text-xs font-black text-indigo-300">Calculating...</p>
+        </div>
+      </div>
+
+      <!-- 🎯 6 STRICT SYNCHRONIZED MILESTONE DOTS -->
+      <div class="bg-slate-900/90 rounded-2xl p-4 border border-slate-800 shadow-lg space-y-3">
+        <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+          <h4 class="font-black text-white text-xs uppercase tracking-wider flex items-center gap-1.5 font-mono">
+            <span>🎯</span> Trip Milestones
+          </h4>
+          <span id="milestoneCurrentLabel" class="text-[10px] font-mono text-slate-400 font-bold uppercase">Standby</span>
+        </div>
+
+        <div class="space-y-3.5 relative pl-5 border-l-2 border-slate-800 ml-2 py-1">
+          <div class="relative flex items-center gap-3"><div id="dot-stage-1" class="w-3.5 h-3.5 rounded-full bg-slate-800 -ml-[25px] border-2 border-slate-700 transition-all"></div><div><p class="text-xs font-bold text-slate-200">1. Trip Started</p><p class="text-[9px] text-slate-500 font-mono">Driver GPS broadcast active</p></div></div>
+          <div class="relative flex items-center gap-3"><div id="dot-stage-2" class="w-3.5 h-3.5 rounded-full bg-slate-800 -ml-[25px] border-2 border-slate-700 transition-all"></div><div><p class="text-xs font-bold text-slate-200">2. Bus Proximity (200m)</p><p class="text-[9px] text-slate-500 font-mono">Approaching within 200 meters</p></div></div>
+          <div class="relative flex items-center gap-3"><div id="dot-stage-3" class="w-3.5 h-3.5 rounded-full bg-slate-800 -ml-[25px] border-2 border-slate-700 transition-all"></div><div><p class="text-xs font-bold text-slate-200">3. Stop Arrived (Within 60m)</p><p class="text-[9px] text-slate-500 font-mono">Bus at your exact coordinate (Siren ON)</p></div></div>
+          <div class="relative flex items-center gap-3"><div id="dot-stage-4" class="w-3.5 h-3.5 rounded-full bg-slate-800 -ml-[25px] border-2 border-slate-700 transition-all"></div><div><p class="text-xs font-bold text-slate-200">4. Student Boarded</p><p class="text-[9px] text-slate-500 font-mono">Verified by driver QR / PIN</p></div></div>
+          <div class="relative flex items-center gap-3"><div id="dot-stage-5" class="w-3.5 h-3.5 rounded-full bg-slate-800 -ml-[25px] border-2 border-slate-700 transition-all"></div><div><p class="text-xs font-bold text-slate-200">5. En Route to School</p><p class="text-[9px] text-slate-500 font-mono">Student onboard & bus crossed stop</p></div></div>
+          <div class="relative flex items-center gap-3"><div id="dot-stage-6" class="w-3.5 h-3.5 rounded-full bg-slate-800 -ml-[25px] border-2 border-slate-700 transition-all"></div><div><p class="text-xs font-bold text-slate-200">6. School Gate Arrived</p><p class="text-[9px] text-slate-500 font-mono">Safe institutional drop</p></div></div>
+        </div>
+      </div>
+      <!-- COORDINATE SHIFTER -->
+      <div class="bg-gradient-to-br from-slate-900 to-indigo-950/40 rounded-2xl p-4 border border-indigo-500/30 shadow-lg space-y-3">
+        <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+          <span class="text-xs font-black text-white flex items-center gap-1.5 font-mono"><i class="fa-solid fa-location-crosshairs text-sky-400"></i> Pickup Stop Coordinates</span>
+          <span class="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Active</span>
+        </div>
+
+        <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800 text-center">
+          <p class="text-[9px] text-slate-400 uppercase font-bold font-mono mb-0.5">Currently Locked Stop Point</p>
+          <p id="currentCoordsDisplay" class="text-xs font-bold text-emerald-400 font-mono tracking-wider">Lat: --, Lng: --</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 text-[10px] font-bold font-mono">
+          <button onclick="requestCurrentGpsLock()" class="bg-sky-600/20 text-sky-300 border border-sky-500/30 py-2 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer">
+            <i class="fa-solid fa-location-arrow"></i> Use Phone GPS
+          </button>
+          <button onclick="enableMapPinDragging()" class="bg-amber-500/20 text-amber-300 border border-amber-500/30 py-2 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer">
+            <i class="fa-solid fa-map-pin"></i> Drag Pin on Map
+          </button>
+        </div>
+
+        <div class="bg-slate-950/90 p-2.5 rounded-xl border border-slate-800 space-y-2">
+          <p class="text-[10px] text-slate-400 font-mono text-center font-bold">Shift Coordinates (±50m Nudge for Testing)</p>
+          <div class="flex justify-center gap-2">
+            <button onclick="nudgeCoordinate('north')" class="bg-slate-800 hover:bg-slate-700 text-sky-300 px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold border border-slate-700 cursor-pointer">⬆️ North</button>
+            <button onclick="nudgeCoordinate('south')" class="bg-slate-800 hover:bg-slate-700 text-sky-300 px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold border border-slate-700 cursor-pointer">⬇️ South</button>
+          </div>
+          <div class="flex justify-center gap-2">
+            <button onclick="nudgeCoordinate('west')" class="bg-slate-800 hover:bg-slate-700 text-sky-300 px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold border border-slate-700 cursor-pointer">⬅️ West</button>
+            <button onclick="nudgeCoordinate('east')" class="bg-slate-800 hover:bg-slate-700 text-sky-300 px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold border border-slate-700 cursor-pointer">➡️ East</button>
+          </div>
+        </div>
+
+        <div class="flex gap-2 items-center">
+          <input type="text" id="manualLatInput" placeholder="Latitude" class="w-full bg-slate-950 border border-slate-700 text-white text-[11px] font-mono px-2 py-2 rounded-xl outline-none text-center">
+          <input type="text" id="manualLngInput" placeholder="Longitude" class="w-full bg-slate-950 border border-slate-700 text-white text-[11px] font-mono px-2 py-2 rounded-xl outline-none text-center">
+          <button onclick="saveManualInputCoordinates()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-xl text-[10px] font-black uppercase shrink-0 shadow-md cursor-pointer">SAVE</button>
+        </div>
+      </div>
+      <!-- LANDMARK & ATTENDANCE -->
+      <div class="p-4 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-3 shadow-lg">
+        <div class="flex justify-between items-center"><span class="text-xs font-black uppercase tracking-wider text-white font-mono flex items-center gap-1.5"><span>📍</span> Landmark</span></div>
+        <p id="currentStopDescription" class="text-xs font-mono text-slate-200 bg-slate-900 p-2.5 rounded-xl border border-slate-800 truncate">No stop set.</p>
+        <div class="pt-2.5 border-t border-slate-800 flex justify-between items-center text-xs">
+          <span class="text-slate-400 font-mono">Student Attending Bus Today:</span>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="attendanceToggle" class="sr-only peer" checked onchange="toggleAttendanceStatus(this)">
+            <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+          </label>
+        </div>
+      </div><!-- PILOT & SOS -->
+      <div class="bg-gradient-to-r from-slate-900 to-indigo-950 rounded-2xl p-4 border border-indigo-900/40 shadow-xl space-y-3">
+        <div class="flex justify-between items-start">
+          <div><p class="text-[10px] text-slate-400 uppercase font-mono font-bold tracking-widest">Assigned Bus & Pilot</p><h4 class="text-base font-black text-white mt-0.5" id="infoBusNo">SCH-306-01</h4><p class="text-xs text-sky-400 font-mono mt-0.5" id="infoDriverName">Pilot: Verified School Driver</p></div>
+          <span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-full text-[10px] font-black uppercase font-mono">Active</span>
+        </div>
+        <div class="pt-2.5 border-t border-slate-800 flex justify-between items-center"><span class="text-xs text-slate-400 font-mono">Emergency Alert:</span><button onclick="triggerEmergencyAlert()" class="bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 px-4 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"><span>🆘</span> SOS Call</button></div>
+      </div>
+    </div>
+
+    <!-- VIEW 2: ATTENDANCE TAB -->
+    <div id="view-attendance" class="space-y-4 view-section hidden">
+      <div class="bg-slate-900/90 rounded-2xl p-4 border border-slate-800 shadow-xl space-y-3">
+        <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+          <h3 class="font-black text-white text-xs uppercase tracking-wider flex items-center gap-1.5"><i class="fa-solid fa-calendar-check text-sky-400"></i> Daily Bus Attendance</h3>
+          <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Synced</span>
+        </div>
+        <div class="grid grid-cols-3 gap-2 text-center font-mono">
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800"><p class="text-[8px] text-slate-400 uppercase">Streak</p><p id="attStreak" class="text-sm font-black text-amber-400 mt-0.5">1 Days</p></div>
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800"><p class="text-[8px] text-slate-400 uppercase">Total Rides</p><p id="attTotal" class="text-sm font-black text-sky-400 mt-0.5">1 Days</p></div>
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800"><p class="text-[8px] text-slate-400 uppercase">Status</p><p id="attStatus" class="text-sm font-black text-emerald-400 mt-0.5">Present</p></div>
+        </div>
+        <div class="p-3 bg-slate-950/80 rounded-xl border border-slate-800 text-xs font-mono text-slate-300">
+          <p>Student Name: <b id="attStudentName" class="text-white">--</b></p>
+          <p class="mt-1">Last Boarded Date: <b id="attLastDate" class="text-sky-400">--</b></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 3: REWARDS -->
+    <div id="view-rewards" class="space-y-4 view-section hidden">
+      <div class="bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 rounded-3xl p-6 shadow-2xl flex justify-between items-center">
+        <div><span class="bg-slate-950/20 px-3 py-1 rounded-full text-[10px] font-black uppercase">Safety Rewards</span><h3 class="text-3xl font-black mt-2">⭐ 120 Pts</h3></div>
+        <div class="w-16 h-16 bg-slate-950 text-amber-400 rounded-2xl flex items-center justify-center text-3xl shadow-xl">🏆</div>
+      </div>
+    </div>
+  </main>
+
+  <!-- BOTTOM NAVBAR -->
+  <nav class="fixed bottom-0 inset-x-0 bg-[#0a1120]/95 backdrop-blur-md border-t border-slate-800 px-6 py-2.5 z-40 flex justify-around items-center max-w-4xl mx-auto shadow-2xl">
+    <button onclick="switchTab('home')" id="tab-home" class="flex flex-col items-center gap-1 text-sky-400 font-bold text-[10px] uppercase"><i class="fa-solid fa-house text-lg"></i><span>Home</span></button>
+    <button onclick="switchTab('attendance')" id="tab-attendance" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 font-bold text-[10px] uppercase"><i class="fa-solid fa-calendar-check text-lg"></i><span>Attendance</span></button>
+    <button onclick="switchTab('rewards')" id="tab-rewards" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 font-bold text-[10px] uppercase"><i class="fa-solid fa-trophy text-lg"></i><span>Rewards</span></button>
+  </nav>
+<script>
+    let audioCtx = null, sirenOscillator = null, sirenGain = null, sirenInterval = null;
+
+    function initAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    window.addEventListener('touchstart', initAudioContext, { once: false, passive: true });
+    window.addEventListener('click', initAudioContext, { once: false, passive: true });
+
+    function playBeepTone(freq, duration) {
+      try {
+        initAudioContext();
+        if (!audioCtx || audioCtx.state !== 'running') return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch(e) {}
+    }
+
+    function startElectronicSiren() {
+      initAudioContext();
+      if (sirenOscillator) return;
+      try {
+        sirenOscillator = audioCtx.createOscillator();
+        sirenGain = audioCtx.createGain();
+        sirenOscillator.type = 'sawtooth';
+        sirenGain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+        sirenOscillator.connect(sirenGain);
+        sirenGain.connect(audioCtx.destination);
+        sirenOscillator.start();
+
+        let high = false;
+        sirenInterval = setInterval(() => {
+          if (!sirenOscillator) return;
+          sirenOscillator.frequency.setValueAtTime(high ? 750 : 1250, audioCtx.currentTime);
+          high = !high;
+        }, 300);
+      } catch(e) {}
+
+      document.getElementById('sirenEmergencyModal').classList.remove('hidden');
+      document.getElementById('sirenEmergencyModal').classList.add('flex');
+      if ("vibrate" in navigator) navigator.vibrate([600, 250, 600, 250, 800]);
+    }
+
+    window.dismissSiren = function() {
+      if (sirenInterval) clearInterval(sirenInterval);
+      if (sirenOscillator) {
+        try { sirenOscillator.stop(); sirenOscillator.disconnect(); } catch(e){}
+        sirenOscillator = null;
+      }
+      document.getElementById('sirenEmergencyModal').classList.add('hidden');
+      document.getElementById('sirenEmergencyModal').classList.remove('flex');
+    };
+
+    let triggeredStages = { 1: false, 2: false, 3: false, 4: false, 5: false, 6: false };
+
+    function triggerMilestoneNotification(stageNumber, title, bodyMessage) {
+      if (triggeredStages[stageNumber]) return;
+      triggeredStages[stageNumber] = true;
+
+      playBeepTone(stageNumber === 3 ? 1200 : 880, 0.4);
+if ("Notification" in window && Notification.permission === "granted") {
+        try {
+          new Notification(title, { body: bodyMessage, icon: "https://cdn-icons-png.flaticon.com/512/3448/3448339.png" });
+        } catch(e){}
+      }
+
+      if ('speechSynthesis' in window) {
+        try {
+          window.speechSynthesis.cancel();
+          const utter = new SpeechSynthesisUtterance(bodyMessage);
+          utter.rate = 1.0;
+          window.speechSynthesis.speak(utter);
+        } catch(e){}
+      }
+
+      if ("vibrate" in navigator) navigator.vibrate(350);
+    }
+
+    const fbConf = {
+      apiKey: "AIzaSyAX4DiHm_96uj88rw8FJMagamG2eZ02dRg",
+      authDomain: "schoolride-86d42.firebaseapp.com",
+      projectId: "schoolride-86d42",
+      storageBucket: "schoolride-86d42.firebasestorage.app",
+      messagingSenderId: "1064604975933",
+      appId: "1:1064604975933:web:7920070b847c778cc2bb54",
+      measurementId: "G-W5B56T8FX2"
+    };
+    if (!firebase.apps.length) firebase.initializeApp(fbConf);
+    const db = firebase.firestore();
+
+    const SUPABASE_URL = 'https://tvwhtyxosovscygvahow.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2d2h0eXhvc292c2N5Z3ZhaG93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2MDA2MzksImV4cCI6MjEwMTE3NjYzOX0.kVLKQsl4gfIex7LQJqh-GXl-QgEIdvqK8mY7AoauzGI';
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let map = null, busMarker = null, homeMarker = null, schoolMarker = null, routePolyline = null;
+    let currentHomeCoords = [26.9739, 81.9098];
+    let schoolCoords = null;
+    let schoolNameResolved = "School Campus";
+    let lastResetTs = 0;
+    let availableStudents = [], studentSession = null;
+    let currentTripId = 'SCH-306-01';
+
+    let currentLat = 0, currentLng = 0, targetLat = 0, targetLng = 0, currentAngle = 0, targetAngle = 0;
+    const LERP_FACTOR = 0.18;
+    let activeTripStatus = 'idle', isGateCompletedFlag = false;
+
+    // 🛡️ UPDATED: Overlay Block & Notification Permission Handler
+    window.initializeParentSession = function() {
+      document.getElementById('audioGateModal').style.display = 'none';
+      initAudioContext();
+      
+      if ("Notification" in window && Notification.permission !== "granted") {
+        try {
+          Notification.requestPermission().then(permission => {
+            if (permission === 'denied') console.warn("Notifications denied by user.");
+          }).catch(err => {
+            console.warn("Notification prompt blocked by OS (Overlay active).", err);
+          });
+        } catch(e) {}
+      }
+      
+      initMap();
+      loadLinkedStudents();
+    };
+
+    async function loadLinkedStudents() {
+      try {
+        let parentUser = {};
+        try { parentUser = JSON.parse(localStorage.getItem('meriride_user') || localStorage.getItem('aoochale_user') || '{}'); } catch(e){}
+
+        let query = _supabase.from('students').select('*');
+        const phone = (parentUser.phone || parentUser.mobile || '').trim();
+        if (phone) query = query.or(`parent_phone.eq.${phone},guardian_phone.eq.${phone}`);
+
+        const { data } = await query.order('id', { ascending: true });
+        availableStudents = (data && data.length > 0) ? data : (await _supabase.from('students').select('*').limit(5)).data || [];
+
+        if (availableStudents.length > 0) {
+          document.getElementById('studentSelectDropdown').innerHTML = availableStudents.map(s => `<option value="${s.id}">👤 ${s.name}</option>`).join('');
+          let savedId = localStorage.getItem('meriride_selected_student_id');
+          let matched = availableStudents.find(s => String(s.id) === String(savedId)) || availableStudents[0];
+          applyStudentSession(matched);
+        }
+      } catch(e){}
+    }
+
+    window.switchStudentProfile = async function(id) {
+      const chosen = availableStudents.find(s => String(s.id) === String(id));
+      if (chosen) {
+        localStorage.setItem('meriride_selected_student_id', chosen.id);
+        const { data } = await _supabase.from('students').select('*').eq('id', chosen.id).maybeSingle();
+        applyStudentSession(data || chosen);
+      }
+    };
+  // 🏫 UPDATED: Made async to wait for school coordinate fetch
+    async function applyStudentSession(student) {
+      studentSession = student;
+      document.getElementById('studentSelectDropdown').value = student.id;
+
+      currentTripId = studentSession.vehicle_number || studentSession.bus_number || 'SCH-306-01';
+      document.getElementById('headerBusId').textContent = `Trip: ${currentTripId}`;
+      document.getElementById('infoBusNo').textContent = currentTripId;
+      document.getElementById('studentNameDisplay').textContent = studentSession.name;
+      document.getElementById('studentClassDisplay').textContent = `Class: ${studentSession.class_grade || '-'} • PIN: ${studentSession.qr_code_id || 'N/A'}`;
+
+      document.getElementById('attStudentName').textContent = studentSession.name;
+      document.getElementById('attStreak').textContent = `${studentSession.attendance_streak || 1} Days`;
+      document.getElementById('attTotal').textContent = `${studentSession.total_attended_days || 1} Days`;
+      document.getElementById('attLastDate').textContent = studentSession.last_boarded_date || 'Today';
+      document.getElementById('attStatus').textContent = studentSession.is_absent ? 'Absent' : 'Present';
+      document.getElementById('attendanceToggle').checked = !studentSession.is_absent;
+
+      if (studentSession.home_lat && studentSession.home_lng) {
+        currentHomeCoords = [Number(studentSession.home_lat), Number(studentSession.home_lng)];
+      } else if (studentSession.pickup_stop) {
+        const m = studentSession.pickup_stop.match(/GPS:\s*([-0-9.]+),\s*([-0-9.]+)/);
+        if (m) currentHomeCoords = [+m[1], +m[2]];
+      }
+      
+      // 🏫 NEW: Fetch exact School Coordinates from Supabase
+      if (studentSession.school_id) {
+        schoolCoords = await resolveSchoolCoordinates(studentSession.school_id);
+        plotSchoolMarkerOnParentMap();
+      }
+
+      document.getElementById('currentStopDescription').textContent = studentSession.pickup_stop ? studentSession.pickup_stop.split('(GPS')[0].trim() : 'No stop set yet';
+
+      updateCoordinateDisplayUI();
+      syncPickupHomeMarker();
+      forceCleanResetAllDots();
+
+      listenSupabaseEvents(studentSession.id);
+      listenFirebaseTelemetry(currentTripId);
+    }
+
+    // 🏫 NEW: Fetch logic to read the latitude & longitude exactly as your JSON showed
+    async function resolveSchoolCoordinates(schoolId) {
+      try {
+        const { data: prof } = await _supabase.from('profiles').select('*').eq('id', schoolId).maybeSingle();
+        if (prof) {
+          schoolNameResolved = prof.school_name || prof.full_name || "School Campus";
+          if (prof.school_lat && prof.school_lng) return [Number(prof.school_lat), Number(prof.school_lng)];
+          if (prof.latitude && prof.longitude) return [Number(prof.latitude), Number(prof.longitude)];
+          if (prof.school_address) {
+            let m = prof.school_address.match(/GPS:\s*([-0-9.]+),\s*([-0-9.]+)/);
+            if (m) return [+m[1], +m[2]];
+          }
+        }
+        
+        const { data: sch } = await _supabase.from('schools').select('*').eq('id', schoolId).maybeSingle();
+        if (sch) {
+          schoolNameResolved = sch.school_name || sch.name || "School Campus";
+          if (sch.latitude && sch.longitude) return [Number(sch.latitude), Number(sch.longitude)];
+          if (sch.address) {
+            let m = sch.address.match(/GPS:\s*([-0-9.]+),\s*([-0-9.]+)/);
+            if (m) return [+m[1], +m[2]];
+          }
+        }
+      } catch(e) {
+        console.warn("School location sync error:", e);
+      }
+      return null;
+    }
+
+    // 🏫 NEW: Draw the school marker strictly on the map
+    function plotSchoolMarkerOnParentMap() {
+      if (!map || !schoolCoords) return;
+      if (schoolMarker) map.removeLayer(schoolMarker);
+
+      const schoolGateHtml = `
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <div style="background:#0f172a;color:#f59e0b;border:1px solid #f59e0b;font-size:9px;font-family:monospace;font-weight:bold;padding:1px 6px;border-radius:6px;white-space:nowrap;margin-bottom:2px;box-shadow:0 4px 12px rgba(0,0,0,0.5);">
+            🏫 ${schoolNameResolved} Gate
+          </div>
+          <div style="background:#f59e0b;color:#050b14;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;border:2px solid white;box-shadow:0 4px 10px rgba(245,158,11,0.5);">
+            🏫
+          </div>
+        </div>
+      `;
+
+      schoolMarker = L.marker(schoolCoords, { 
+        icon: L.divIcon({ html: schoolGateHtml, iconSize: [140, 50], iconAnchor: [70, 48] }) 
+      }).bindPopup(`<b>🏫 ${schoolNameResolved}</b><br>Official Campus Gate`).addTo(map);
+    }
+
+    function initMap() {
+      if (map) return;
+      map = L.map('frontLiveMap', { zoomControl: false, attributionControl: false }).setView(currentHomeCoords, 16);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20 }).addTo(map);
+
+      routePolyline = L.polyline([], { color: '#0ea5e9', weight: 4 }).addTo(map);
+      busMarker = L.marker(currentHomeCoords, { icon: L.divIcon({ html: `<div style="background:#0f172a;border:2px solid #38bdf8;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#38bdf8;box-shadow:0 0 15px rgba(56,189,248,0.7);"><i class="fa-solid fa-bus text-xs"></i></div>`, iconSize:[34,34], iconAnchor:[17,17], className:'' }) }).addTo(map);
+      
+      syncPickupHomeMarker();
+      requestAnimationFrame(renderSmoothMovement);
+
+      map.on('click', (e) => {
+        currentHomeCoords = [e.latlng.lat, e.latlng.lng];
+        syncPickupHomeMarker();
+        updateCoordinateDisplayUI();
+        saveCoordinatesToDb(e.latlng.lat, e.latlng.lng);
+      });
+    }
+
+    function syncPickupHomeMarker() {
+      if (!map) return;
+      if (homeMarker) {
+        homeMarker.setLatLng(currentHomeCoords);
+        map.panTo(currentHomeCoords);
+      } else {
+        homeMarker = L.marker(currentHomeCoords, { icon: L.divIcon({ html: `<div style="background:#f59e0b;color:#050b14;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;border:2px solid white;box-shadow:0 0 15px rgba(245,158,11,0.6);">🏠</div>`, iconSize:[34,34], iconAnchor:[17,34] }), draggable: true }).addTo(map);
+        homeMarker.on('dragend', (e) => {
+          const p = e.target.getLatLng();
+          currentHomeCoords = [p.lat, p.lng];
+          updateCoordinateDisplayUI();
+          saveCoordinatesToDb(p.lat, p.lng);
+        });
+      }
+    }
+
+    function updateCoordinateDisplayUI() {
+      document.getElementById('currentCoordsDisplay').textContent = `Lat: ${currentHomeCoords[0].toFixed(5)}, Lng: ${currentHomeCoords[1].toFixed(5)}`;
+      document.getElementById('hudStopCoord').textContent = `${currentHomeCoords[0].toFixed(5)}, ${currentHomeCoords[1].toFixed(5)}`;
+      document.getElementById('manualLatInput').value = currentHomeCoords[0].toFixed(5);
+      document.getElementById('manualLngInput').value = currentHomeCoords[1].toFixed(5);
+    }
+    
+    window.nudgeCoordinate = function(dir) {
+      const STEP = 0.00045;
+      if (dir === 'north') currentHomeCoords[0] += STEP;
+      if (dir === 'south') currentHomeCoords[0] -= STEP;
+      if (dir === 'east')  currentHomeCoords[1] += STEP;
+      if (dir === 'west')  currentHomeCoords[1] -= STEP;
+      syncPickupHomeMarker();
+      updateCoordinateDisplayUI();
+      saveCoordinatesToDb(currentHomeCoords[0], currentHomeCoords[1]);
+    };
+
+    window.enableMapPinDragging = () => { if(homeMarker){ homeMarker.dragging.enable(); document.getElementById('dragHelperBanner').classList.remove('hidden'); } };
+    window.saveCurrentMarkerStopToDb = () => { document.getElementById('dragHelperBanner').classList.add('hidden'); saveCoordinatesToDb(currentHomeCoords[0], currentHomeCoords[1]); };
+    
+    // 🛡️ UPDATED: Catching Overlay GPS Error to prevent crashing
+    window.requestCurrentGpsLock = () => { 
+      if (!navigator.geolocation) {
+        alert("⚠️ GPS is not supported on this browser.");
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        p => { 
+          currentHomeCoords = [p.coords.latitude, p.coords.longitude]; 
+          syncPickupHomeMarker(); 
+          updateCoordinateDisplayUI(); 
+          saveCoordinatesToDb(currentHomeCoords[0], currentHomeCoords[1]); 
+        },
+        err => {
+          alert("⚠️ Permission Blocked: Please close any floating apps/bubbles (like chat heads or screen recorders) and 'Allow' location access in browser settings.");
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      ); 
+    };
+window.saveManualInputCoordinates = () => {
+      const lat = parseFloat(document.getElementById('manualLatInput').value), lng = parseFloat(document.getElementById('manualLngInput').value);
+      if(!isNaN(lat) && !isNaN(lng)){ currentHomeCoords = [lat, lng]; syncPickupHomeMarker(); updateCoordinateDisplayUI(); saveCoordinatesToDb(lat, lng); }
+    };
+
+    async function saveCoordinatesToDb(lat, lng) {
+      if (!studentSession) return;
+      const newStop = `Custom (GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)})`;
+      await _supabase.from('students').update({ home_lat: lat, home_lng: lng, pickup_stop: newStop }).eq('id', studentSession.id);
+      studentSession.home_lat = lat;
+      studentSession.home_lng = lng;
+      studentSession.pickup_stop = newStop;
+      document.getElementById('currentStopDescription').textContent = newStop;
+      forceCleanResetAllDots();
+    }
+
+    window.handleSimulationSlider = function(val) {
+      const distM = Number(val);
+      document.getElementById('sliderDistanceDisplay').textContent = `${distM} m`;
+      processIncomingTelemetry(currentHomeCoords[0] + (distM / 111139), currentHomeCoords[1], 30, 180, isGateCompletedFlag, 'started');
+    };
+
+    function calculateHaversine(lat1, lon1, lat2, lon2) {
+      const R = 6371000, toRad = Math.PI / 180;
+      const dLat = (lat2 - lat1) * toRad, dLon = (lon2 - lon1) * toRad;
+      const a = Math.sin(dLat / 2)**2 + Math.cos(lat1*toRad)*Math.cos(lat2*toRad)*Math.sin(dLon/2)**2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function processIncomingTelemetry(lat, lng, speed, heading, isGateCompleted, tripStatus) {
+      document.getElementById('driverWaitingOverlay').classList.add('opacity-0');
+      setTimeout(() => document.getElementById('driverWaitingOverlay').classList.add('hidden'), 300);
+      
+      document.getElementById('liveSpeedText').textContent = `${speed} km/h`;
+      document.getElementById('liveStatusText').textContent = "Live Stream";
+      document.getElementById('liveStatusText').className = "font-bold text-emerald-400";
+      document.getElementById('livePingDot').className = "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping";
+      document.getElementById('hudBusCoord').textContent = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+
+      targetLat = lat; targetLng = lng; targetAngle = heading;
+
+      const dist = calculateHaversine(lat, lng, currentHomeCoords[0], currentHomeCoords[1]);
+      
+      document.getElementById('liveDistanceText').textContent = dist < 1000 ? `${Math.round(dist)} m` : `${(dist/1000).toFixed(2)} km`;
+      document.getElementById('liveEtaText').textContent = speed > 2 ? `${Math.max(1, Math.ceil((dist/1000)/speed * 60))} min` : "Driving";
+
+      let isTripStarted = (tripStatus === 'started' || speed > 0 || (lat !== 0 && lng !== 0));
+      let isWithin200m = isTripStarted && (dist <= 200);
+      let isAtStopExact = isTripStarted && (dist <= 60); 
+      let isBoarded = studentSession && studentSession.boarded === true;
+      let isEnRouteSchool = isBoarded && (dist > 50);
+      let isSchoolReached = isGateCompleted && isEnRouteSchool;
+
+      if (isSchoolReached) isEnRouteSchool = true;
+      if (isEnRouteSchool) isBoarded = true;
+      if (isBoarded) isAtStopExact = true;
+      if (isAtStopExact) isWithin200m = true;
+      if (isWithin200m) isTripStarted = true;
+
+      setDotState(1, isTripStarted);
+      setDotState(2, isWithin200m);
+      setDotState(3, isAtStopExact);
+      setDotState(4, isBoarded);
+      setDotState(5, isEnRouteSchool);
+      setDotState(6, isSchoolReached);
+
+      if (isSchoolReached) {
+        document.getElementById('milestoneCurrentLabel').textContent = "School Gate Arrived";
+        triggerMilestoneNotification(6, "🏫 Stage 6: School Reached", "Bus has safely reached the school campus!");
+        dismissSiren();
+      } else if (isEnRouteSchool) {
+        document.getElementById('milestoneCurrentLabel').textContent = "En Route to School";
+        triggerMilestoneNotification(5, "🚌 Stage 5: En Route to School", "Student boarded. Bus is now moving towards school!");
+        dismissSiren();
+      } else if (isBoarded) {
+        document.getElementById('milestoneCurrentLabel').textContent = "Student Boarded";
+        triggerMilestoneNotification(4, "✅ Stage 4: Student Boarded", "Your child was marked boarded by the driver!");
+        dismissSiren();
+      } else if (isAtStopExact) {
+        document.getElementById('milestoneCurrentLabel').textContent = "Stop Arrived (Within 60m)";
+        triggerMilestoneNotification(3, "🚨 Stage 3: Bus At Stop!", "The school bus has arrived within 60 meters of your stop!");
+        startElectronicSiren();
+      } else if (isWithin200m) {
+        document.getElementById('milestoneCurrentLabel').textContent = `Stop Proximity (${Math.round(dist)}m)`;
+        triggerMilestoneNotification(2, "📍 Stage 2: Approaching (200m)", `The school bus is within 200 meters. Current distance: ${Math.round(dist)} meters.`);
+        dismissSiren();
+      } else if (isTripStarted) {
+        document.getElementById('milestoneCurrentLabel').textContent = "Bus En Route";
+        triggerMilestoneNotification(1, "🚀 Stage 1: Trip Started", "The bus has started live broadcast.");
+        dismissSiren();
+      } else {
+        document.getElementById('milestoneCurrentLabel').textContent = "Standby / Unboarded";
+      }
+    }
+
+    function setDotState(index, isActive) {
+      const dot = document.getElementById(`dot-stage-${index}`);
+      if (!dot) return;
+      if (isActive) {
+        dot.className = "w-3.5 h-3.5 rounded-full step-dot step-active -ml-[25px] border-2 border-slate-900 transition-all";
+      } else {
+        dot.className = "w-3.5 h-3.5 rounded-full bg-slate-800 -ml-[25px] border-2 border-slate-700 transition-all";
+      }
+    }
+
+    window.testSpecificDotStage = function(stage) {
+      triggeredStages[stage] = false;
+      const lat = currentHomeCoords[0];
+      const lng = currentHomeCoords[1];
+
+      switch(stage) {
+        case 1:
+          if (studentSession) studentSession.boarded = false;
+          processIncomingTelemetry(lat + 0.0072, lng, 35, 180, false, 'started');
+          break;
+        case 2:
+          if (studentSession) studentSession.boarded = false;
+          processIncomingTelemetry(lat + 0.0013, lng, 25, 180, false, 'started');
+          break;
+        case 3:
+          if (studentSession) studentSession.boarded = false;
+          processIncomingTelemetry(lat + 0.00045, lng, 10, 180, false, 'started');
+          break;
+        case 4:
+          if (studentSession) studentSession.boarded = true;
+          processIncomingTelemetry(lat, lng, 0, 180, false, 'started');
+          break;
+        case 5:
+          if (studentSession) studentSession.boarded = true;
+          processIncomingTelemetry(lat + 0.0015, lng + 0.001, 38, 90, false, 'started');
+          break;
+        case 6:
+          if (studentSession) studentSession.boarded = true;
+          processIncomingTelemetry(lat + 0.008, lng + 0.005, 0, 0, true, 'completed');
+          break;
+      }
+    };
+
+    window.forceCleanResetAllDots = function() {
+      triggeredStages = { 1: false, 2: false, 3: false, 4: false, 5: false, 6: false };
+      dismissSiren();
+      for (let i = 1; i <= 6; i++) { setDotState(i, false); }
+      document.getElementById('milestoneCurrentLabel').textContent = "Standby / Unboarded";
+    };
+
+    function renderSmoothMovement() {
+      if (targetLat !== 0 && targetLng !== 0) {
+        if (currentLat === 0) { currentLat = targetLat; currentLng = targetLng; currentAngle = targetAngle; }
+        currentLat += (targetLat - currentLat) * LERP_FACTOR;
+        currentLng += (targetLng - currentLng) * LERP_FACTOR;
+        let angleDiff = (targetAngle - currentAngle + 180) % 360 - 180;
+        currentAngle += angleDiff * LERP_FACTOR;
+        if (busMarker) busMarker.setLatLng([currentLat, currentLng]);
+      }
+      requestAnimationFrame(renderSmoothMovement);
+    }
+
+    function listenFirebaseTelemetry(tripId) {
+      db.collection("trips").doc(tripId).onSnapshot((doc) => {
+        if (!doc.exists) return;
+        const d = doc.data();
+        activeTripStatus = d.status || 'idle';
+        isGateCompletedFlag = (d.status === 'completed' || d.school_reached === true);
+        
+        if (d.reset_trigger && d.reset_trigger > lastResetTs) {
+          lastResetTs = d.reset_trigger;
+          if (studentSession) studentSession.boarded = false;
+          forceCleanResetAllDots();
+        }
+
+        if (activeTripStatus === 'idle') {
+          document.getElementById('driverWaitingOverlay').classList.remove('hidden');
+          forceCleanResetAllDots();
+          return;
+        }
+
+        if (d.latitude && d.longitude) {
+          processIncomingTelemetry(Number(d.latitude), Number(d.longitude), Math.round(d.speed || 0), d.heading || 0, isGateCompletedFlag, activeTripStatus);
+        }
+      });
+    }
+
+    function listenSupabaseEvents(studentId) {
+      _supabase.channel(`parent-feed-${studentId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'students', filter: `id=eq.${studentId}` }, (payload) => {
+        const updated = payload.new;
+        if (updated.home_lat && updated.home_lng) {
+          currentHomeCoords = [Number(updated.home_lat), Number(updated.home_lng)];
+          syncPickupHomeMarker();
+          updateCoordinateDisplayUI();
+        }
+        if (studentSession) {
+          studentSession.boarded = updated.boarded;
+        }
+      }).subscribe();
+    }
+
+    window.toggleAttendanceStatus = async function(checkbox) {
+      await _supabase.from('students').update({ is_absent: !checkbox.checked }).eq('id', studentSession.id);
+      document.getElementById('attStatus').textContent = checkbox.checked ? 'Present' : 'Absent';
+    };
+ window.toggleTestingLabDrawer = () => { document.getElementById('testingLabDrawer').classList.toggle('hidden'); };
+    window.triggerEmergencyAlert = () => alert("🆘 Emergency SOS triggered!");
+    window.switchTab = (tabId) => {
+      document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+      document.getElementById(`view-${tabId}`).classList.remove('hidden');
+      ['home', 'attendance', 'rewards'].forEach(id => {
+        const el = document.getElementById(`tab-${id}`);
+        if (el) el.className = (id === tabId) ? "flex flex-col items-center gap-1 text-sky-400 font-bold text-[10px] uppercase" : "flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 font-bold text-[10px] uppercase";
+      });
+    };
+    window.centerMapOnPickup = () => { if (map && currentHomeCoords) map.setView(currentHomeCoords, 17); };
+    
+    // 🏫 NEW: Button logic to center map on the newly loaded School Gate
+    window.centerMapOnSchool = () => { if (map && schoolCoords) map.setView(schoolCoords, 17); };
+    
+    window.centerOnBus = () => { if (map && targetLat !== 0) map.setView([targetLat, targetLng], 16); };
+    window.logout = () => { localStorage.clear(); location.href = 'index.html'; };
+  </script>
+</body>
+</html> 

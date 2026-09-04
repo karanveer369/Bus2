@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Meriride - School Milestone Rewards</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        body { background-color: #060d17; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        .bg-grid { background-size: 36px 36px; background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px); }
+        .glass-card { background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(14px); border: 1px solid rgba(51, 65, 85, 0.7); }
+    </style>
+</head>
+<body class="min-h-screen text-slate-100 bg-grid pb-20">
+
+    <header class="bg-[#09111e]/90 backdrop-blur border-b border-slate-800 sticky top-0 z-40 px-4 md:px-8 py-3.5 flex justify-between items-center shadow-lg">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                <i class="ph-fill ph-trophy text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-base md:text-lg font-black tracking-wide text-white flex items-center gap-2">
+                    MERIRIDE <span class="bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[9px] px-2 py-0.5 rounded-md font-extrabold uppercase">Milestone Vault</span>
+                </h1>
+                <p class="text-[10px] md:text-xs text-slate-400 font-medium" id="schoolHeaderName">Institutional Growth Program</p>
+            </div>
+        </div>
+        <button onclick="window.history.back()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3.5 py-2 rounded-xl text-xs font-bold border border-slate-700 transition">Back</button>
+    </header>
+
+    <main class="max-w-6xl mx-auto p-4 md:p-6 lg:p-8 space-y-8">
+        
+        <!-- HERO STATS -->
+        <div class="glass-card rounded-3xl p-6 md:p-8 relative overflow-hidden border-t-4 border-t-amber-500 shadow-xl">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                <div class="lg:col-span-8 space-y-2">
+                    <span class="bg-amber-500/20 text-amber-400 text-[10px] font-black px-3 py-1 rounded-full uppercase border border-amber-500/30">
+                        🎓 Campus Infrastructure Rewards
+                    </span>
+                    <h2 class="text-2xl md:text-3xl font-black text-white mt-1" id="schoolTitle">Institutional Milestone Vault</h2>
+                    <p class="text-xs md:text-sm text-slate-400 max-w-xl">
+                        Real-time student subscriptions count directly from your school fleet roster. Unlock mega campus infrastructure installations as your school hits 300, 500, and 1,000 active student subscribers.
+                    </p>
+                </div>
+                <div class="lg:col-span-4 bg-slate-950/80 border border-slate-800 p-5 rounded-2xl text-center space-y-1">
+                    <p class="text-[10px] uppercase font-extrabold text-slate-400 tracking-widest">Enrolled Fleet Students</p>
+                    <h3 class="text-4xl font-black text-amber-400" id="activeSubCount">0</h3>
+                    <p class="text-[10px] text-emerald-400 font-mono font-bold">● Live Database Connected</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 🚀 3-TIER MILESTONE REWARDS CARDS -->
+        <div class="space-y-4">
+            <h3 class="text-lg md:text-xl font-black text-white flex items-center gap-2">
+                <i class="ph-bold ph-gift text-amber-400"></i> Milestone Infrastructure Rewards
+            </h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                
+                <!-- TIER 1: 300 STUDENTS -->
+                <div id="tier1Card" class="glass-card rounded-3xl p-6 border border-slate-800 space-y-4 relative overflow-hidden transition">
+                    <div class="absolute top-0 right-0 bg-blue-600 text-white text-[10px] font-black px-4 py-1 rounded-bl-xl uppercase tracking-widest">Tier 1 • 300 Students</div>
+                    <div class="w-14 h-14 bg-blue-500/10 border border-blue-500/30 rounded-2xl flex items-center justify-center text-blue-400 text-3xl mb-2">🚰</div>
+                    <div>
+                        <h4 class="text-lg font-black text-white">Commercial RO+UV Water Plant</h4>
+                        <p class="text-xs text-slate-400 mt-1">Multi-stage chilling water filtration plant fully sponsored & installed.</p>
+                    </div>
+                    <div class="space-y-2 pt-2">
+                        <div class="flex justify-between text-xs font-mono"><span id="t1ProgressText">0 / 300 Subscribed</span><span id="t1Percent" class="text-blue-400 font-bold">0%</span></div>
+                        <div class="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800">
+                            <div id="t1Bar" class="bg-blue-500 h-full rounded-full transition-all duration-700" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                    <button id="t1Btn" onclick="submitClaimToSupabase(1, 'Commercial RO+UV Water Plant')" disabled class="w-full bg-slate-800 text-slate-500 font-black py-3 rounded-xl text-xs uppercase tracking-wider cursor-not-allowed">Locked (300 Required)</button>
+                </div>
+
+                <!-- TIER 2: 500 STUDENTS -->
+                <div id="tier2Card" class="glass-card rounded-3xl p-6 border border-slate-800 space-y-4 relative overflow-hidden transition">
+                    <div class="absolute top-0 right-0 bg-purple-600 text-white text-[10px] font-black px-4 py-1 rounded-bl-xl uppercase tracking-widest">Tier 2 • 500 Students</div>
+                    <div class="w-14 h-14 bg-purple-500/10 border border-purple-500/30 rounded-2xl flex items-center justify-center text-purple-400 text-3xl mb-2">🖥️</div>
+                    <div>
+                        <h4 class="text-lg font-black text-white">Full Smart Classroom Setup</h4>
+                        <p class="text-xs text-slate-400 mt-1">Interactive smart board, digital projector, high-gain sound & software pack.</p>
+                    </div>
+                    <div class="space-y-2 pt-2">
+                        <div class="flex justify-between text-xs font-mono"><span id="t2ProgressText">0 / 500 Subscribed</span><span id="t2Percent" class="text-purple-400 font-bold">0%</span></div>
+                        <div class="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800">
+                            <div id="t2Bar" class="bg-purple-500 h-full rounded-full transition-all duration-700" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                    <button id="t2Btn" onclick="submitClaimToSupabase(2, 'Full Smart Classroom Setup')" disabled class="w-full bg-slate-800 text-slate-500 font-black py-3 rounded-xl text-xs uppercase tracking-wider cursor-not-allowed">Locked (500 Required)</button>
+                </div>
+
+                <!-- TIER 3: 1000 STUDENTS -->
+                <div id="tier3Card" class="glass-card rounded-3xl p-6 border border-slate-800 space-y-4 relative overflow-hidden transition">
+                    <div class="absolute top-0 right-0 bg-amber-600 text-white text-[10px] font-black px-4 py-1 rounded-bl-xl uppercase tracking-widest">Tier 3 • 1,000 Students</div>
+                    <div class="w-14 h-14 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-center text-amber-400 text-3xl mb-2">🚌</div>
+                    <div>
+                        <h4 class="text-lg font-black text-white">Sponsored Annual Educational Tour</h4>
+                        <p class="text-xs text-slate-400 mt-1">100% sponsored luxury bus trip & picnic tour for the students & staff.</p>
+                    </div>
+                    <div class="space-y-2 pt-2">
+                        <div class="flex justify-between text-xs font-mono"><span id="t3ProgressText">0 / 1000 Subscribed</span><span id="t3Percent" class="text-amber-400 font-bold">0%</span></div>
+                        <div class="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800">
+                            <div id="t3Bar" class="bg-amber-500 h-full rounded-full transition-all duration-700" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                    <button id="t3Btn" onclick="submitClaimToSupabase(3, 'Sponsored Annual Educational Tour')" disabled class="w-full bg-slate-800 text-slate-500 font-black py-3 rounded-xl text-xs uppercase tracking-wider cursor-not-allowed">Locked (1000 Required)</button>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- 📜 ACTIVE CLAIMS STATUS -->
+        <div class="glass-card rounded-3xl p-6 border border-slate-800 space-y-4">
+            <h3 class="font-bold text-white text-base flex items-center gap-2">
+                <i class="ph-bold ph-clock-counter-clockwise text-amber-400"></i> My Submitted Reward Claims (Live Status)
+            </h3>
+            <div id="myClaimsList" class="space-y-2">
+                <p class="text-xs text-slate-500 font-mono">Checking submitted reward requests...</p>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        const SUPABASE_URL = 'https://tvwhtyxosovscygvahow.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2d2h0eXhvc292c2N5Z3ZhaG93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2MDA2MzksImV4cCI6MjEwMTE3NjYzOX0.kVLKQsl4gfIex7LQJqh-GXl-QgEIdvqK8mY7AoauzGI';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let schoolProfile = null;
+        let totalActiveSubscribed = 0;
+
+        async function initSchoolRewards() {
+            const rawUser = localStorage.getItem('meriride_user') || localStorage.getItem('aoochale_user');
+            if (!rawUser) { window.location.href = 'index.html'; return; }
+            
+            schoolProfile = JSON.parse(rawUser);
+            const sName = schoolProfile.school_name || schoolProfile.full_name || "Institution";
+            document.getElementById('schoolHeaderName').innerText = sName;
+            document.getElementById('schoolTitle').innerText = `${sName} Rewards Vault`;
+
+            // Real database count from students table linked to schoolProfile.id
+            const { count, error } = await _supabase
+                .from('students')
+                .select('*', { count: 'exact', head: true })
+                .eq('school_id', schoolProfile.id);
+
+            totalActiveSubscribed = count || 0;
+            document.getElementById('activeSubCount').innerText = `${totalActiveSubscribed} Students`;
+
+            // Update Progress on Tiers
+            updateTierUI(1, totalActiveSubscribed, 300, 't1Bar', 't1ProgressText', 't1Percent', 't1Btn', 'tier1Card');
+            updateTierUI(2, totalActiveSubscribed, 500, 't2Bar', 't2ProgressText', 't2Percent', 't2Btn', 'tier2Card');
+            updateTierUI(3, totalActiveSubscribed, 1000, 't3Bar', 't3ProgressText', 't3Percent', 't3Btn', 'tier3Card');
+
+            loadSubmittedClaims();
+        }
+
+        function updateTierUI(tierNum, current, target, barId, textId, pctId, btnId, cardId) {
+            const pct = Math.min(Math.round((current / target) * 100), 100);
+            document.getElementById(textId).innerText = `${current} / ${target} Subscribed`;
+            document.getElementById(pctId).innerText = `${pct}%`;
+            document.getElementById(barId).style.width = `${pct}%`;
+
+            if (current >= target) {
+                document.getElementById(cardId).className = "glass-card rounded-3xl p-6 border-2 border-emerald-500 space-y-4 shadow-[0_0_25px_rgba(16,185,129,0.2)]";
+                const btn = document.getElementById(btnId);
+                btn.disabled = false;
+                btn.className = "w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 rounded-xl text-xs uppercase tracking-wider shadow-lg transition";
+                btn.innerText = "Claim Mega Reward! 🎁";
+            }
+        }
+
+        async function submitClaimToSupabase(tier, rewardTitle) {
+            const target = tier === 1 ? 300 : tier === 2 ? 500 : 1000;
+            if (totalActiveSubscribed < target) {
+                return alert("⚠️ Milestone threshold not reached yet!");
+            }
+
+            const { error } = await _supabase.from('reward_claims').insert({
+                school_id: schoolProfile.id,
+                school_name: schoolProfile.school_name || schoolProfile.full_name || "Registered School",
+                tier_number: tier,
+                reward_name: rewardTitle,
+                subscribed_count: totalActiveSubscribed,
+                status: 'pending'
+            });
+
+            if (!error) {
+                confetti({ particleCount: 140, spread: 75, origin: { y: 0.6 } });
+                alert(`🎉 Reward Claim for Tier ${tier} (${rewardTitle}) submitted to Super Admin for verification & dispatch!`);
+                loadSubmittedClaims();
+            } else {
+                alert("Error submitting claim: " + error.message);
+            }
+        }
+
+        async function loadSubmittedClaims() {
+            const { data: claims } = await _supabase
+                .from('reward_claims')
+                .select('*')
+                .eq('school_id', schoolProfile.id)
+                .order('created_at', { ascending: false });
+
+            const listEl = document.getElementById('myClaimsList');
+            if (!claims || claims.length === 0) {
+                listEl.innerHTML = `<p class="text-xs text-slate-500 font-mono">No reward claims submitted yet. Reach 300 students to claim Tier 1.</p>`;
+                return;
+            }
+
+            listEl.innerHTML = claims.map(c => `
+                <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
+                    <div>
+                        <p class="font-bold text-white">Tier ${c.tier_number}: ${c.reward_name}</p>
+                        <p class="text-[10px] text-slate-500 font-mono">Submitted on: ${new Date(c.created_at).toLocaleDateString()}</p>
+                    </div>
+                    <span class="px-2.5 py-1 rounded-md font-bold uppercase text-[10px] ${c.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}">
+                        ${c.status}
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        window.onload = initSchoolRewards;
+    </script>
+</body>
+</html>

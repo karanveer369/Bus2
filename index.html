@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Aao Chale School - Login Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        body {
+            -webkit-tap-highlight-color: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        .press-effect {
+            transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .press-effect:active {
+            transform: scale(0.97);
+        }
+    </style>
+</head>
+<body class="bg-[#050811] text-slate-100 min-h-screen flex items-center justify-center p-4 antialiased selection:bg-amber-500 selection:text-slate-950">
+
+    <div class="w-full max-w-md bg-[#0d1424] border border-slate-800 rounded-3xl shadow-2xl p-6 sm:p-8 backdrop-blur-xl relative overflow-hidden">
+        
+        <!-- Brand Header -->
+        <div class="text-center mb-6">
+            <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-400 via-orange-500 to-yellow-300 p-0.5 shadow-lg shadow-amber-500/10 mb-3">
+                <div class="w-full h-full bg-[#090f1d] rounded-[14px] flex items-center justify-center">
+                    <i class="ph-fill ph-bus text-2xl text-amber-400"></i>
+                </div>
+            </div>
+            <h1 class="text-2xl font-black tracking-tight text-white">AAO CHALE <span class="text-amber-400">SCHOOL</span></h1>
+            <p class="text-xs text-slate-400 mt-1 font-medium">Smart Fleet & Student Safety Grid</p>
+        </div>
+
+        <!-- Alert Notification Box -->
+        <div id="alertBox" class="hidden mb-4 p-3.5 rounded-2xl text-xs sm:text-sm font-semibold text-center leading-relaxed"></div>
+
+        <form id="loginForm" class="space-y-4">
+            
+            <!-- Step 1: Credentials Form -->
+            <div id="credentialsFields" class="space-y-3.5">
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Select Portal Type</label>
+                    <select id="role" onchange="toggleLoginFields()" class="w-full bg-[#070b16] border border-slate-700/80 rounded-2xl px-4 py-3.5 text-white font-bold focus:outline-none focus:border-amber-400 transition text-sm">
+                        <option value="parent" class="text-blue-400 font-bold">👨‍👩‍👧 Parent / Student Portal</option>
+                        <option value="bus_driver" class="text-emerald-400 font-bold">🚌 School Bus Driver (Pilot)</option>
+                        <option value="school" class="text-amber-400 font-bold">🏫 School Partner (Admin)</option>
+                        <option value="admin">🛡️ Master Admin</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label id="emailLabel" class="block text-xs font-semibold uppercase text-slate-400 mb-1">Parent Mobile Number</label>
+                    <input type="tel" id="email" required class="w-full bg-[#070b16] border border-slate-700/80 rounded-2xl px-4 py-3.5 text-white focus:outline-none focus:border-amber-400 transition placeholder:text-slate-600 text-sm" placeholder="Enter 10-digit mobile number">
+                </div>
+
+                <div>
+                    <label id="passwordLabel" class="block text-xs font-semibold uppercase text-slate-400 mb-1">Student 6-Digit PIN</label>
+                    <input type="password" id="password" required class="w-full bg-[#070b16] border border-slate-700/80 rounded-2xl px-4 py-3.5 text-white focus:outline-none focus:border-amber-400 transition placeholder:text-slate-600 text-sm" placeholder="Enter 6-digit login PIN" maxlength="6">
+                </div>
+            </div>
+
+            <!-- Step 2: Live Dynamic Verification Box for School Admin -->
+            <div id="codeFields" class="hidden space-y-4 pt-2 border-t border-slate-800">
+                <div id="approvalInfoBox" class="bg-emerald-500/10 border border-emerald-500/30 p-4 rounded-2xl text-center space-y-2"></div>
+                
+                <div>
+                    <label id="codeLabel" class="block text-xs font-semibold uppercase text-slate-400 mb-1 text-center">Enter Authorization PIN to Confirm</label>
+                    <input type="text" id="verificationCode" placeholder="ENTER PIN" class="w-full bg-[#070b16] border border-slate-700/80 rounded-2xl px-4 py-3.5 text-center tracking-[0.3em] text-xl font-mono text-white focus:outline-none focus:border-amber-400 transition uppercase">
+                </div>
+            </div>
+
+            <button type="submit" id="submitBtn" data-step="credentials" class="press-effect w-full mt-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black py-4 rounded-2xl transition shadow-lg shadow-amber-500/20 uppercase tracking-wider text-xs">
+                Login to Portal
+            </button>
+        </form>
+
+        <div class="text-center mt-6 pt-4 border-t border-slate-800/80">
+            <p class="text-xs text-slate-400">
+                New school or parent? 
+                <a href="signup.html" class="text-amber-400 font-bold hover:underline ml-1">Register Account</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://tvwhtyxosovscygvahow.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2d2h0eXhvc292c2N5Z3ZhaG93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2MDA2MzksImV4cCI6MjEwMTE3NjYzOX0.kVLKQsl4gfIex7LQJqh-GXl-QgEIdvqK8mY7AoauzGI';
+        
+        const { createClient } = supabase;
+        const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let userProfile = null;
+
+        const alertBox = document.getElementById('alertBox');
+        function showAlert(message, isError = false) {
+            alertBox.textContent = message;
+            alertBox.className = `mb-4 p-3.5 rounded-2xl text-xs sm:text-sm font-semibold text-center leading-relaxed ${isError ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'}`;
+            alertBox.classList.remove('hidden');
+        }
+
+        function toggleLoginFields() {
+            const role = document.getElementById('role').value;
+            const emailLabel = document.getElementById('emailLabel');
+            const emailInput = document.getElementById('email');
+            const passLabel = document.getElementById('passwordLabel');
+            const passInput = document.getElementById('password');
+
+            if (role === 'parent') {
+                emailLabel.textContent = "Parent Mobile Number";
+                emailInput.type = "tel";
+                emailInput.placeholder = "Enter 10-digit mobile number";
+                passLabel.textContent = "Student 6-Digit PIN";
+                passInput.type = "password";
+                passInput.placeholder = "Enter 6-digit PIN";
+                passInput.maxLength = 6;
+            } else if (role === 'bus_driver') {
+                emailLabel.textContent = "Driver Registered Phone";
+                emailInput.type = "tel";
+                emailInput.placeholder = "Enter registered driver phone";
+                passLabel.textContent = "Driver Access PIN";
+                passInput.type = "password";
+                passInput.placeholder = "Enter driver PIN";
+                passInput.maxLength = 6;
+            } else if (role === 'school') {
+                emailLabel.textContent = "School Email / Phone";
+                emailInput.type = "text";
+                emailInput.placeholder = "school@example.com or phone";
+                passLabel.textContent = "Password";
+                passInput.type = "password";
+                passInput.placeholder = "Enter password";
+                passInput.removeAttribute('maxLength');
+            } else if (role === 'admin') {
+                emailLabel.textContent = "Master Admin Email";
+                emailInput.type = "email";
+                emailInput.placeholder = "admin@aoochaleschool.com";
+                passLabel.textContent = "Security Password";
+                passInput.type = "password";
+                passInput.placeholder = "Enter admin password";
+                passInput.removeAttribute('maxLength');
+            }
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = document.getElementById('submitBtn');
+            const currentStep = submitBtn.getAttribute('data-step');
+            const roleInput = document.getElementById('role').value;
+
+            // STEP 1: CREDENTIALS VERIFICATION
+            if (currentStep === 'credentials') {
+                submitBtn.textContent = 'Verifying Account...';
+                submitBtn.disabled = true;
+                
+                const rawInput = document.getElementById('email').value.trim();
+                const passInput = document.getElementById('password').value.trim();
+
+                // 🛡️ SUPER ADMIN BYPASS
+                if (roleInput === 'admin' && rawInput.toLowerCase() === 'karanveer9044@gmail.com' && passInput === 'karanveer9540') {
+                    const adminProfile = { id: 'super-admin-001', full_name: 'Karanveer', email: rawInput, role: 'admin', status: 'approved' };
+                    localStorage.setItem('aoochale_user', JSON.stringify(adminProfile));
+                    localStorage.setItem('meriride_user', JSON.stringify(adminProfile));
+                    showAlert('Super Admin Authenticated! Entering Master Console...', false);
+                    setTimeout(() => window.location.href = 'admin-rewards-control.html', 500);
+                    return; 
+                }
+
+                // 👨‍👩‍👧 PARENT LOGIN (PHONE + 6-DIGIT STUDENT PIN)
+                if (roleInput === 'parent') {
+                    try {
+                        const { data: students, error: stdErr } = await _supabase
+                            .from('students')
+                            .select('*')
+                            .eq('parent_phone', rawInput);
+
+                        if (stdErr || !students || students.length === 0) {
+                            throw new Error("❌ Mobile number not registered in school student roster!");
+                        }
+
+                        const student = students.find(s => s.qr_code_id === passInput);
+                        if (!student) {
+                            throw new Error("❌ Invalid Student PIN! Please verify the 6-digit code.");
+                        }
+
+                        localStorage.setItem('aoochale_user', JSON.stringify(student));
+                        localStorage.setItem('meriride_parent', JSON.stringify(student));
+                        showAlert(`✅ Welcome! Authenticated for ${student.name} (${student.class_grade || 'Student'}).`, false);
+                        setTimeout(() => window.location.href = 'parent-portal.html', 500);
+                        return;
+                    } catch(err) {
+                        showAlert(err.message, true);
+                        submitBtn.textContent = 'Login to Portal';
+                        submitBtn.disabled = false;
+                        return;
+                    }
+                }
+
+                // 🚌 BUS DRIVER LOGIN (PHONE + FLEET PIN)
+                if (roleInput === 'bus_driver') {
+                    try {
+                        const { data: driverData, error: fleetErr } = await _supabase
+                            .from('school_fleet')
+                            .select('*')
+                            .eq('driver_phone', rawInput)
+                            .maybeSingle();
+
+                        if (fleetErr || !driverData) {
+                            throw new Error("❌ Driver phone number not found in active fleet!");
+                        }
+
+                        if (driverData.driver_pin && driverData.driver_pin !== passInput) {
+                            throw new Error("❌ Incorrect Driver PIN!");
+                        }
+
+                        const driverProfile = {
+                            id: driverData.id,
+                            full_name: driverData.driver_name,
+                            role: 'driver',
+                            school_id: driverData.school_id,
+                            vehicle_type: 'School Bus',
+                            vehicle_number: driverData.bus_number,
+                            phone: driverData.driver_phone,
+                            status: 'approved'
+                        };
+
+                        localStorage.setItem('aoochale_user', JSON.stringify(driverProfile));
+                        localStorage.setItem('meriride_user', JSON.stringify(driverProfile));
+                        showAlert(`✅ Pilot Authenticated! Connecting Bus #${driverData.bus_number}...`, false);
+                        setTimeout(() => window.location.href = 'school-bus-dashboard.html', 500);
+                        return;
+                    } catch(err) {
+                        showAlert(err.message, true);
+                        submitBtn.textContent = 'Login to Portal';
+                        submitBtn.disabled = false;
+                        return;
+                    }
+                }
+
+                // 🏫 SCHOOL ADMIN LOGIN (PROFILES TABLE)
+                try {
+                    let query = _supabase.from('profiles').select('*').eq('role', 'school').eq('password', passInput);
+                    
+                    if (rawInput.includes('@')) {
+                        query = query.ilike('email', rawInput);
+                    } else {
+                        query = query.eq('phone', rawInput);
+                    }
+
+                    const { data: profiles, error } = await query;
+
+                    if (error) throw new Error("Database Error: " + error.message);
+                    if (!profiles || profiles.length === 0) {
+                        throw new Error("❌ Invalid School credentials! Please check Email/Phone and Password.");
+                    }
+                    
+                    userProfile = profiles[0];
+
+                    if (userProfile.status !== 'approved') {
+                        throw new Error('⏳ School registration is PENDING Master Admin Approval.');
+                    }
+
+                    const issuedPin = userProfile.verification_code || '123456';
+                    const approvalBox = document.getElementById('approvalInfoBox');
+
+                    approvalBox.innerHTML = `
+                        <p class="font-black text-sm text-emerald-400">✅ School Partner Verified!</p>
+                        <p class="text-xs text-slate-300">Your Official School Authorization Code is:</p>
+                        <span class="inline-block bg-amber-500/20 text-amber-400 border border-amber-500/40 text-2xl font-black px-4 py-1.5 rounded-xl font-mono tracking-widest mt-1">${issuedPin}</span>
+                    `;
+
+                    document.getElementById('email').removeAttribute('required');
+                    document.getElementById('password').removeAttribute('required');
+                    document.getElementById('credentialsFields').classList.add('hidden');
+                    document.getElementById('codeFields').classList.remove('hidden');
+
+                    submitBtn.textContent = 'Verify Code & Enter Command Center';
+                    submitBtn.setAttribute('data-step', 'code');
+                    showAlert('School Verified! Enter authorization code to proceed.', false);
+
+                } catch (err) {
+                    showAlert(err.message, true);
+                    submitBtn.textContent = 'Login to Portal';
+                } finally {
+                    submitBtn.disabled = false;
+                }
+
+            // STEP 2: CODE VERIFICATION & REDIRECT
+            } else if (currentStep === 'code') {
+                submitBtn.textContent = 'Verifying Code...';
+                submitBtn.disabled = true;
+                
+                const enteredCode = document.getElementById('verificationCode').value.trim().toUpperCase();
+                const targetCode = String(userProfile.verification_code || "").trim().toUpperCase();
+
+                if (enteredCode !== "" && (enteredCode === targetCode || targetCode === "")) {
+                    localStorage.setItem('aoochale_user', JSON.stringify(userProfile));
+                    localStorage.setItem('meriride_user', JSON.stringify(userProfile));
+                    showAlert('✅ Code Confirmed! Opening School Command Center...', false);
+                    setTimeout(() => window.location.href = 'school-dashboard.html', 500);
+                } else {
+                    showAlert('❌ Incorrect Code entered! Please enter the code shown above.', true);
+                    submitBtn.textContent = 'Verify Code & Enter Command Center';
+                    submitBtn.disabled = false;
+                }
+            }
+        });
+
+        // Initialize view
+        toggleLoginFields();
+    </script>
+</body>
+</html>

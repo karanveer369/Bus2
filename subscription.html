@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Aao Chale - Civilian Passes & KM Wallet</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        body { background-color: #030712; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+        .glass-card { background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .press-effect { transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .press-effect:active { transform: scale(0.97); }
+        .glow-emerald { box-shadow: 0 0 25px rgba(16, 185, 129, 0.2); }
+        .glow-cyan { box-shadow: 0 0 25px rgba(6, 182, 212, 0.2); }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen pb-24 font-sans antialiased selection:bg-emerald-500 selection:text-slate-950">
+
+    <header class="bg-[#0b132b]/90 backdrop-blur-xl border-b border-slate-800 sticky top-0 z-50 px-4 md:px-8 py-3.5 shadow-xl">
+        <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-cyan-400 p-[2px]">
+                    <div class="w-full h-full bg-[#070b16] rounded-[14px] flex items-center justify-center"><i class="ph-fill ph-ticket text-xl text-emerald-400"></i></div>
+                </div>
+                <div>
+                    <h1 class="text-base font-black text-white">AAO <span class="text-emerald-400">CHALE</span></h1>
+                    <p class="text-[10px] text-slate-400 font-mono font-bold uppercase">Civilian Super-Passes Hub</p>
+                </div>
+            </div>
+            <a href="civilian-dashboard.html" class="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold border border-slate-700">✕ Close</a>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 pt-6 space-y-8">
+        <div>
+            <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2.5 py-0.5 rounded-md font-black uppercase font-mono">Civilian Transit</span>
+            <h2 class="text-2xl font-black text-white mt-1">Super-Passes & KM Wallet</h2>
+            <p class="text-xs text-slate-400 mt-1">Select from daily corridor passes, unlimited day hops, night pink safety, or build your custom KM balance.</p>
+        </div>
+
+        <!-- 🎟️ SECTION 1: LIVE ADMIN SUPER-PASSES -->
+        <div class="space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 class="text-base font-black text-white flex items-center gap-2">
+                    <i class="ph-bold ph-sparkle text-emerald-400 text-xl"></i> Speciality Commuter Passes
+                </h3>
+                <span class="text-[10px] text-emerald-300 font-mono bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/30">Admin Verified</span>
+            </div>
+
+            <div id="civilianSuperPassesGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <p class="text-xs text-slate-500 text-center py-6 col-span-2">Loading Live Super-Passes...</p>
+            </div>
+        </div>
+
+        <!-- 🧮 SECTION 2: CUSTOM KM DISTANCE WALLET -->
+        <div class="glass-card border-2 border-cyan-500/40 rounded-3xl p-6 glow-cyan space-y-4">
+            <div class="flex justify-between items-center">
+                <span id="fareRateBadge" class="text-[10px] bg-cyan-500/20 text-cyan-300 px-2.5 py-1 rounded-full font-mono font-bold">₹10 Base + ₹1.5/KM</span>
+                <i class="ph-fill ph-calculator text-cyan-400 text-xl"></i>
+            </div>
+            <div>
+                <h3 class="text-lg font-black text-white">Custom KM Distance Pass</h3>
+                <p class="text-xs text-slate-400">Add prepaid KM distance to your balance for point-to-point scanning.</p>
+            </div>
+
+            <div>
+                <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1 font-mono">Distance Required (KM)</label>
+                <div class="relative">
+                    <input type="number" id="kmInput" value="25" min="1" max="5000" oninput="calculateKmFare()" class="w-full bg-[#070b16] border border-cyan-500/50 rounded-2xl px-4 py-3 text-2xl font-black font-mono text-white focus:outline-none pr-14">
+                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-cyan-400 font-mono">KM</span>
+                </div>
+            </div>
+
+            <div class="bg-black/30 p-3.5 rounded-xl border border-white/[0.05] flex justify-between items-center text-xs font-mono">
+                <span class="text-slate-400">Total Calculated Cost:</span>
+                <span id="kmCostDisplay" class="text-xl font-black text-cyan-400">₹44.50</span>
+            </div>
+
+            <button onclick="buyKmPass()" id="kmActionBtn" class="press-effect w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest shadow-lg shadow-cyan-500/20">
+                Start 3-Day Free Trial (25 KM)
+            </button>
+        </div>
+    </main>
+
+    <script>
+        const SUPABASE_URL = 'https://tvwhtyxosovscygvahow.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2d2h0eXhvc292c2N5Z3ZhaG93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2MDA2MzksImV4cCI6MjEwMTE3NjYzOX0.kVLKQsl4gfIex7LQJqh-GXl-QgEIdvqK8mY7AoauzGI';
+        const _supabase = (window.supabase || supabase).createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let user = null;
+        let isTrialEligible = true;
+        let baseFare = 10;
+        let perKmRate = 1.5;
+
+        function getDurationLabel(days) {
+            const d = Number(days) || 7;
+            if (d === 1) return '1 Day';
+            if (d === 2) return '2 Days';
+            if (d === 7) return 'week';
+            if (d === 15) return '15 Days';
+            if (d === 30) return 'month';
+            if (d === 365) return 'year';
+            return `${d} Days`;
+        }
+
+        async function init() {
+            const raw = localStorage.getItem('aoochale_user') || localStorage.getItem('meriride_user');
+            if (!raw) { window.location.href = 'index.html'; return; }
+            user = JSON.parse(raw);
+
+            const { data: profile } = await _supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+            if (profile) {
+                user = { ...user, ...profile };
+                if (profile.subscription_expiry && new Date(profile.subscription_expiry) > new Date(Date.now() - 365*24*60*60*1000)) {
+                    isTrialEligible = false;
+                }
+            }
+
+            await Promise.all([fetchFareRules(), fetchSuperPasses()]);
+        }
+
+        async function fetchFareRules() {
+            const { data } = await _supabase.from('fare_rules').select('*').eq('id', 'default_fare_config').maybeSingle();
+            if (data) {
+                baseFare = parseFloat(data.base_fare) || 10;
+                perKmRate = parseFloat(data.per_km_rate) || 1.5;
+                document.getElementById('fareRateBadge').textContent = `₹${baseFare} Base + ₹${perKmRate}/KM`;
+            }
+            calculateKmFare();
+        }
+
+        function calculateKmFare() {
+            const km = parseFloat(document.getElementById('kmInput').value) || 1;
+            const cost = (baseFare + (Math.max(0, km - 2) * perKmRate)).toFixed(2);
+            document.getElementById('kmCostDisplay').textContent = `₹${cost}`;
+            document.getElementById('kmActionBtn').textContent = isTrialEligible ? `Start 3-Day Free Trial (${km} KM)` : `Buy ${km} KM Pass (₹${cost})`;
+        }
+
+        async function fetchSuperPasses() {
+            const container = document.getElementById('civilianSuperPassesGrid');
+            const { data: plans } = await _supabase.from('subscription_plans').select('*').eq('category', 'civilian').order('price', { ascending: true });
+
+            if (!plans || plans.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-500 text-center py-6 col-span-2">No special passes active right now.</p>`;
+                return;
+            }
+
+            container.innerHTML = plans.map(p => {
+                let durationDays = 7;
+                let trips = "Daily Trips";
+                let cap = "Standard Route";
+                let raw = p.features || '';
+
+                const valM = raw.match(/\[Validity:\s*(\d+)\s*Days?\]/i);
+                if (valM) durationDays = Number(valM[1]);
+
+                const tripM = raw.match(/\[Trips:\s*([^\]]+)\]/i);
+                if (tripM) trips = tripM[1];
+
+                const capM = raw.match(/\[Cap:\s*([^\]]+)\]/i);
+                if (capM) cap = capM[1];
+
+                const cleanFeatures = raw.replace(/\[[^\]]+\]/g, '').trim();
+                const durationLabel = getDurationLabel(durationDays);
+
+                return `
+                    <div class="glass-card border border-emerald-500/30 rounded-3xl p-5 flex flex-col justify-between space-y-4 glow-emerald">
+                        <div>
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <span class="bg-emerald-500/20 text-emerald-300 text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full font-mono">${durationLabel.toUpperCase()} PASS</span>
+                                    <h4 class="text-base font-black text-white mt-1.5">${p.name}</h4>
+                                </div>
+                                <span class="text-2xl font-black font-mono text-emerald-400">₹${p.price}<span class="text-[10px] text-slate-500 font-normal">/${durationLabel}</span></span>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-2 text-[10px] font-mono font-bold my-3">
+                                <div class="bg-slate-900/80 p-2 rounded-xl border border-slate-800 text-slate-300">
+                                    <span class="text-slate-500 block text-[8px]">Trips:</span> ${trips}
+                                </div>
+                                <div class="bg-slate-900/80 p-2 rounded-xl border border-slate-800 text-slate-300">
+                                    <span class="text-slate-500 block text-[8px]">Distance:</span> ${cap}
+                                </div>
+                            </div>
+
+                            <div class="text-[11px] text-slate-300 space-y-1 bg-black/25 p-3 rounded-2xl border border-white/[0.05]">
+                                ${cleanFeatures ? cleanFeatures.split(',').filter(f => f.trim()).map(f => `<div class="flex items-center gap-1.5"><i class="ph-bold ph-check text-emerald-400 text-xs"></i> ${f.trim()}</div>`).join('') : 'VIP access enabled'}
+                            </div>
+                        </div>
+
+                        <button onclick="activatePass('${p.id}', '${p.name}', ${durationDays})" class="press-effect w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black py-3 rounded-xl text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/20">
+                            ${isTrialEligible ? 'Start 3-Day Free Trial' : `Activate Pass (₹${p.price})`}
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function activatePass(id, name, days) {
+            const activeDays = isTrialEligible ? 3 : days;
+            const expiry = new Date(Date.now() + activeDays * 24 * 60 * 60 * 1000).toISOString();
+
+            const { error } = await _supabase.from('profiles').update({
+                plan_status: isTrialEligible ? 'trial' : 'active',
+                active_plan: `pass_${id}_${name.replace(/\s+/g, '_')}`,
+                subscription_expiry: expiry
+            }).eq('id', user.id);
+
+            if (error) return alert("Error: " + error.message);
+
+            user.plan_status = isTrialEligible ? 'trial' : 'active';
+            user.subscription_expiry = expiry;
+            localStorage.setItem('aoochale_user', JSON.stringify(user));
+
+            alert(isTrialEligible ? "✨ 3-Day Free Trial Activated!" : `✅ ${name} Activated for ${getDurationLabel(days)}!`);
+            window.location.href = 'civilian-dashboard.html';
+        }
+
+        async function buyKmPass() {
+            const km = parseFloat(document.getElementById('kmInput').value) || 25;
+            const days = isTrialEligible ? 3 : 30;
+            const expiry = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+            const newKm = (Number(user.wallet_km_balance) || 0) + km;
+
+            const { error } = await _supabase.from('profiles').update({
+                plan_status: isTrialEligible ? 'trial' : 'active',
+                active_plan: `km_pass_${km}`,
+                subscription_expiry: expiry,
+                wallet_km_balance: newKm
+            }).eq('id', user.id);
+
+            if (error) return alert("Error: " + error.message);
+
+            user.plan_status = isTrialEligible ? 'trial' : 'active';
+            user.wallet_km_balance = newKm;
+            user.subscription_expiry = expiry;
+            localStorage.setItem('aoochale_user', JSON.stringify(user));
+
+            alert(isTrialEligible ? `✨ 3-Day Free Trial Started! Added ${km} KM.` : `✅ Added ${km} KM to Wallet!`);
+            window.location.href = 'civilian-dashboard.html';
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>

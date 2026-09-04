@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meriride - School Transport Registration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl p-6 sm:p-8 backdrop-blur-xl my-8">
+        <div class="text-center mb-6">
+            <div class="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 px-3 py-1 rounded-full text-amber-400 text-[10px] font-black uppercase tracking-widest mb-3">
+                <i class="ph-bold ph-bus"></i> Dedicated School Safety Grid
+            </div>
+            <h1 class="text-3xl font-black tracking-tight text-white">Create Account</h1>
+            <p class="text-xs sm:text-sm text-slate-400 mt-1">Register as a Parent or School Partner</p>
+        </div>
+
+        <div id="alertBox" class="hidden mb-4 p-3.5 rounded-xl text-xs sm:text-sm font-semibold text-center"></div>
+
+        <form id="signupForm" class="space-y-4">
+            <div>
+                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Full Name</label>
+                <input type="text" id="fullName" required placeholder="e.g. Rahul Sharma" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Email Address</label>
+                <input type="email" id="email" required placeholder="name@example.com" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Password</label>
+                <input type="password" id="password" required placeholder="••••••••" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Phone Number</label>
+                    <input type="tel" id="phone" required placeholder="10-digit mobile" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Area Pincode</label>
+                    <input type="text" id="pincode" required placeholder="e.g. 271001" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Select Account Type</label>
+                <select id="role" onchange="toggleRoleFields()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white font-bold focus:outline-none focus:border-cyan-500 transition">
+                    <option value="school_student">👨‍👩‍👦 Parent / Student</option>
+                    <option value="school">🏫 School Partner (Admin)</option>
+                </select>
+            </div>
+
+            <!-- 👨‍👩‍👦 PARENT / STUDENT SPECIFIC FIELDS -->
+            <div id="studentFields" class="space-y-4 pt-4 border-t border-slate-800">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+                    <h3 class="text-sm font-bold text-cyan-400 uppercase tracking-wider">Student Details</h3>
+                </div>
+
+                <div class="relative">
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Search Enrolled School</label>
+                    <input type="text" id="institutionName" onkeyup="searchSchools()" placeholder="Type to search school in your pincode..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
+                    <div id="schoolDropdown" class="absolute z-50 w-full bg-slate-800 border border-slate-700 rounded-xl mt-1 hidden max-h-40 overflow-y-auto shadow-2xl"></div>
+                    <input type="hidden" id="selectedSchoolId">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Enrolled Class / Grade</label>
+                    <select id="courseClass" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white font-bold focus:outline-none focus:border-cyan-500 transition">
+                        <option value="">-- Select Class --</option>
+                        <optgroup label="Primary Wing (Class 1 - 5)">
+                            <option value="Class 1">Class 1</option>
+                            <option value="Class 2">Class 2</option>
+                            <option value="Class 3">Class 3</option>
+                            <option value="Class 4">Class 4</option>
+                            <option value="Class 5">Class 5</option>
+                        </optgroup>
+                        <optgroup label="Secondary Wing (Class 6 - 10)">
+                            <option value="Class 6">Class 6</option>
+                            <option value="Class 7">Class 7</option>
+                            <option value="Class 8">Class 8</option>
+                            <option value="Class 9">Class 9</option>
+                            <option value="Class 10">Class 10</option>
+                        </optgroup>
+                        <optgroup label="Senior Secondary (Class 11 - 12)">
+                            <option value="Class 11">Class 11</option>
+                            <option value="Class 12">Class 12</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Student Roll No / School ID</label>
+                    <input type="text" id="studentId" placeholder="e.g. 1024" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Parent Contact Number</label>
+                    <input type="tel" id="guardianPhone" placeholder="Emergency WhatsApp / Contact" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
+                </div>
+            </div>
+
+            <!-- 🏫 SCHOOL PARTNER / ADMIN FIELDS -->
+            <div id="schoolFields" class="hidden space-y-4 pt-4 border-t border-slate-800">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    <h3 class="text-sm font-bold text-emerald-400 uppercase tracking-wider">Institution Details</h3>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Official School Name</label>
+                    <input type="text" id="schoolPartnerName" placeholder="e.g. St. Xavier's High School" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Campus Full Address</label>
+                    <input type="text" id="schoolAddress" placeholder="Street, Area, District" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Affiliation / Registration Doc</label>
+                    <input type="file" id="schoolDocFile" accept=".pdf,image/*" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-white file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 transition">
+                </div>
+            </div>
+
+            <button type="submit" id="submitBtn" class="w-full mt-6 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-black py-3.5 rounded-xl transition shadow-lg shadow-cyan-600/30 uppercase tracking-wider text-xs">
+                Create Account
+            </button>
+        </form>
+
+        <div class="mt-6 pt-5 border-t border-slate-800 text-center">
+            <p class="text-xs text-slate-400">
+                Already registered or assigned as Driver? 
+                <a href="index.html" class="text-cyan-400 font-bold hover:underline transition">
+                    Login here
+                </a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://tvwhtyxosovscygvahow.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2d2h0eXhvc292c2N5Z3ZhaG93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2MDA2MzksImV4cCI6MjEwMTE3NjYzOX0.kVLKQsl4gfIex7LQJqh-GXl-QgEIdvqK8mY7AoauzGI';
+        
+        const { createClient } = supabase;
+        const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        function toggleRoleFields() {
+            const role = document.getElementById('role').value;
+            const studentFields = document.getElementById('studentFields');
+            const schoolFields = document.getElementById('schoolFields');
+            
+            studentFields.classList.add('hidden');
+            schoolFields.classList.add('hidden');
+
+            if (role === 'school_student') {
+                studentFields.classList.remove('hidden');
+            } else if (role === 'school') {
+                schoolFields.classList.remove('hidden');
+            }
+        }
+
+        async function searchSchools() {
+            const pin = document.getElementById('pincode').value.trim();
+            const query = document.getElementById('institutionName').value.trim();
+            const dropdown = document.getElementById('schoolDropdown');
+
+            if (query.length < 2 || !pin) {
+                dropdown.classList.add('hidden');
+                return;
+            }
+
+            const { data: schools } = await _supabase
+                .from('profiles')
+                .select('id, school_name, full_name')
+                .eq('role', 'school')
+                .eq('pincode', pin)
+                .ilike('school_name', `%${query}%`);
+
+            if (schools && schools.length > 0) {
+                dropdown.classList.remove('hidden');
+                dropdown.innerHTML = schools.map(s => `
+                    <div class="p-3 hover:bg-cyan-600 cursor-pointer text-sm font-semibold border-b border-slate-700 last:border-0 transition" 
+                         onclick="selectSchool('${s.id}', '${s.school_name || s.full_name}')">
+                        🏫 ${s.school_name || s.full_name}
+                    </div>
+                `).join('');
+            } else {
+                dropdown.classList.remove('hidden');
+                dropdown.innerHTML = `<div class="p-3 text-xs text-slate-400">No registered schools found in pincode ${pin}.</div>`;
+            }
+        }
+
+        function selectSchool(id, name) {
+            document.getElementById('institutionName').value = name;
+            document.getElementById('selectedSchoolId').value = id;
+            document.getElementById('schoolDropdown').classList.add('hidden');
+        }
+
+        const alertBox = document.getElementById('alertBox');
+        function showAlert(message, isError = false) {
+            alertBox.textContent = message;
+            alertBox.className = `mb-4 p-3.5 rounded-xl text-xs sm:text-sm font-semibold text-center ${isError ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'}`;
+            alertBox.classList.remove('hidden');
+        }
+
+        document.getElementById('signupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.textContent = 'Registering Profile...';
+            submitBtn.disabled = true;
+
+            const fullName = document.getElementById('fullName').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const phone = document.getElementById('phone').value.trim();
+            const pincode = document.getElementById('pincode').value.trim();
+            const role = document.getElementById('role').value;
+
+            try {
+                const userId = crypto.randomUUID();
+
+                let profileData = { 
+                    id: userId,
+                    full_name: fullName,
+                    email: email,
+                    password: password,
+                    phone: phone, 
+                    pincode: pincode,
+                    role: role,
+                    status: role === 'school_student' ? 'approved' : 'pending',
+                    verification_code: null 
+                };
+
+                if (role === 'school_student') {
+                    profileData.institution_name = document.getElementById('institutionName').value.trim();
+                    profileData.school_id = document.getElementById('selectedSchoolId').value || null; 
+                    profileData.class_grade = document.getElementById('courseClass').value;
+                    profileData.course_class = document.getElementById('courseClass').value;
+                    profileData.student_id_no = document.getElementById('studentId').value.trim();
+                    profileData.guardian_phone = document.getElementById('guardianPhone').value.trim();
+                } else if (role === 'school') {
+                    profileData.school_name = document.getElementById('schoolPartnerName').value.trim();
+                    profileData.school_address = document.getElementById('schoolAddress').value.trim();
+
+                    const fileInput = document.getElementById('schoolDocFile');
+                    if (fileInput && fileInput.files.length > 0) {
+                        submitBtn.textContent = 'Uploading Document...';
+                        const file = fileInput.files[0];
+                        const filePath = `school_${userId}_${Date.now()}_${file.name}`;
+
+                        const { error: uploadError } = await _supabase.storage
+                            .from('school-documents')
+                            .upload(filePath, file);
+
+                        if (!uploadError) {
+                            const { data: urlData } = _supabase.storage
+                                .from('school-documents')
+                                .getPublicUrl(filePath);
+                            profileData.document_url = urlData.publicUrl;
+                        }
+                    }
+                }
+
+                const { error: profileError } = await _supabase.from('profiles').insert([profileData]);
+                if (profileError) throw new Error("Database Error: " + profileError.message);
+
+                const message = role === 'school_student' 
+                    ? '✅ Registration Successful! You can now log in to the Parent Portal.' 
+                    : '✅ Application Submitted! Please wait for approval before accessing your portal.';
+
+                showAlert(message, false);
+                document.getElementById('signupForm').reset();
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 2000);
+
+            } catch (err) {
+                showAlert(err.message, true);
+            } finally {
+                submitBtn.textContent = 'Create Account';
+                submitBtn.disabled = false;
+            }
+        });
+
+        // Initialize default view
+        toggleRoleFields();
+    </script>
+</body>
+</html>
